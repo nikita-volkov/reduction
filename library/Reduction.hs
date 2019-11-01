@@ -151,12 +151,14 @@ Update reduction by feeding a foldable of inputs to it.
 -}
 feedFoldable :: Foldable f => f input -> Reduction input output -> Reduction input output
 feedFoldable foldable reduction =
-  foldl'
-    (\ case
-      Ongoing _ consume -> consume
-      terminated -> const terminated)
-    reduction
+  foldr
+    (\ input updateReduction reduction -> case reduction of
+      Ongoing _ consume -> updateReduction (consume input)
+      terminated -> terminated
+    )
+    id
     foldable
+    reduction
 
 -- *** Composition
 -------------------------
