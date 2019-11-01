@@ -23,6 +23,7 @@ module Reduction
   feed,
   feedList,
   feedVector,
+  feedFoldable,
   -- ** Compositional conversion
   unpar,
   -- * Parallel reduction
@@ -144,6 +145,18 @@ feedVector vec = let
       else Ongoing terminate consume
     terminated -> terminated
   in iterate 0
+
+{-|
+Update reduction by feeding a foldable of inputs to it.
+-}
+feedFoldable :: Foldable f => f input -> Reduction input output -> Reduction input output
+feedFoldable foldable reduction =
+  foldl'
+    (\ case
+      Ongoing _ consume -> consume
+      terminated -> const terminated)
+    reduction
+    foldable
 
 -- *** Composition
 -------------------------
