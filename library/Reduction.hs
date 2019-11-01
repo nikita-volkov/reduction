@@ -26,9 +26,13 @@ module Reduction
   feedFoldable,
   -- ** Compositional conversion
   unpar,
+  unseq,
   -- * Parallel reduction
   ParReduction,
   par,
+  -- * Sequential reduction
+  SeqReduction,
+  seq,
 )
 where
 
@@ -194,6 +198,25 @@ selectPar = \ case
     Left output1 -> fmap ($ output1)
     Right output -> const (Terminated output)
 
+apSeq :: Reduction input (a -> b) -> Reduction input a -> Reduction input b
+apSeq = \ case
+  Ongoing terminate1 consume1 -> \ reduction2 ->
+    Ongoing
+      (terminate1 (extract reduction2))
+      (\ input -> apSeq (consume1 input) reduction2)
+  Terminated output1 -> fmap output1
+
+bindSeq :: (a -> Reduction input b) -> Reduction input a -> Reduction input b
+bindSeq getReduction2 = 
+  let
+    compose = \ case
+      Ongoing terminate1 consume1 ->
+        let
+          terminate = extract (getReduction2 terminate1)
+          consume input = compose (consume1 input)
+          in Ongoing terminate consume
+      Terminated output1 -> getReduction2 output1
+    in compose
 
 -- ** Compositional conversion
 -------------------------
@@ -203,6 +226,12 @@ Normalize parallel reduction.
 -}
 unpar :: ParReduction input output -> Reduction input output
 unpar (ParReduction reduction) = reduction
+
+{-|
+Normalize sequential reduction.
+-}
+unseq :: SeqReduction input output -> Reduction input output
+unseq (SeqReduction reduction) = reduction
 
 
 -- * Parallel
@@ -230,3 +259,35 @@ Parallelize normal reduction.
 -}
 par :: Reduction input output -> ParReduction input output
 par = ParReduction
+
+
+-- * Sequential
+-------------------------
+
+{-|
+Zero-cost wrapper over `Reduction`,
+which provides instances, implementing sequential composition.
+-}
+newtype SeqReduction input output = SeqReduction (Reduction input output)
+
+deriving instance Functor (SeqReduction input)
+
+instance Applicative (SeqReduction input) where
+  pure a = SeqReduction (Terminated a)
+  (<*>) = seqBinOp apPar
+
+instance Selective (SeqReduction input) where
+  select = selectM
+
+instance Monad (SeqReduction input) where
+  return = pure
+  (>>=) (SeqReduction reduction1) getSeqReduction2 =
+    SeqReduction (bindSeq (unseq . getSeqReduction2) reduction1)
+
+seqBinOp op (SeqReduction red1) (SeqReduction red2) = SeqReduction (op red1 red2)
+
+{-|
+Sequentialize normal reduction.
+-}
+seq :: Reduction input output -> SeqReduction input output
+seq = SeqReduction
