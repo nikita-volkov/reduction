@@ -8,6 +8,7 @@ module Reduction
   foldl,
   count,
   sum,
+  product,
   list,
   reverseList,
   -- ** Transformation
@@ -99,6 +100,12 @@ Reduction, summarizing all visited elements.
 -}
 sum :: Num a => Reduction a a
 sum = foldl (+) 0
+
+{-|
+Reduction, multiplying all visited elements.
+-}
+product :: Num a => Reduction a a
+product = foldl (*) 1
 
 {-|
 Reduction, collecting all visited elements into a list.
