@@ -11,6 +11,8 @@ module Reduction
   list,
   reverseList,
   -- ** Transformation
+  take,
+  drop,
   -- *** Feeding
   -- |
   -- Utilities allowing you to update a reduction
@@ -36,7 +38,7 @@ module Reduction
 )
 where
 
-import Reduction.Prelude hiding (par, seq, foldl, sum, product)
+import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop)
 import qualified Data.Vector.Generic as Vec
 import qualified Control.Comonad as Comonad
 
@@ -115,6 +117,41 @@ reverseList = foldl (flip (:)) []
 
 -- ** Transformation
 -------------------------
+
+forceTermination :: Reduction a b -> Reduction a b
+forceTermination = \ case
+  Ongoing terminate _ -> Terminated terminate
+  terminated -> terminated
+
+mapOngoing :: (Reduction a b -> Reduction a b) -> Reduction a b -> Reduction a b
+mapOngoing fn = \ case
+  Ongoing terminate consume -> Ongoing terminate (fn . consume)
+  terminated -> terminated
+
+{-|
+Limit a reduction to consume only the specified amount of elements at max,
+terminating early.
+
+>>> list & take 2 & feedList [1,2,3,4] & extract
+[1,2]
+-}
+take :: Int -> Reduction a b -> Reduction a b
+take amount = if amount > 0
+  then mapOngoing (take (pred amount))
+  else forceTermination
+
+{-|
+Make reduction ignore the first elements.
+
+>>> list & drop 2 & feedList [1,2,3,4] & extract
+[3,4]
+-}
+drop :: Int -> Reduction a b -> Reduction a b
+drop amount = if amount > 0
+  then \ reduction -> case reduction of
+    Ongoing terminate consume -> Ongoing terminate (const (drop (amount - 1) reduction))
+    _ -> reduction
+  else id
 
 -- *** Feeding
 -------------------------
