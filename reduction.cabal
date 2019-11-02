@@ -34,3 +34,16 @@ library
     semigroupoids >=5 && <6,
     text >=1 && <2,
     vector >=0.12 && <0.13
+
+benchmark benchmark
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: Main.hs
+  default-extensions: Arrows, BangPatterns, ConstraintKinds, DataKinds, DefaultSignatures, DeriveDataTypeable, DeriveFoldable, DeriveFunctor, DeriveGeneric, DeriveTraversable, EmptyDataDecls, FlexibleContexts, FlexibleInstances, FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving, LambdaCase, LiberalTypeSynonyms, MagicHash, MultiParamTypeClasses, MultiWayIf, NoImplicitPrelude, NoMonomorphismRestriction, OverloadedStrings, PatternGuards, ParallelListComp, QuasiQuotes, RankNTypes, RecordWildCards, ScopedTypeVariables, StandaloneDeriving, TemplateHaskell, TupleSections, TypeApplications, TypeFamilies, TypeOperators, UnboxedTuples
+  default-language: Haskell2010
+  ghc-options: -O2 -threaded "-with-rtsopts=-N" -rtsopts -funbox-strict-fields
+  build-depends:
+    criterion >=1.5 && <2,
+    foldl >=1.4 && <2,
+    reduction,
+    rerebase >=1.4 && <2
