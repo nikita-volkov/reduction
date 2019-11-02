@@ -33,7 +33,7 @@ module Reduction
   -- Utilities allowing you to update a reduction
   -- by feeding the contents of a datastructure to it.
   -- 
-  -- Notice that you can feed multiple times and from different data-structures:
+  -- Notice that you can feed multiple times and from different datastructures:
   -- 
   -- >>> list & feedList [1,2] & feed 3 & feedVector (Data.Vector.fromList [4,5]) & extract
   -- [1,2,3,4,5]
