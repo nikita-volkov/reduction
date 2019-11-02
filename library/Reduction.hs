@@ -284,6 +284,14 @@ unseq (SeqReduction reduction) = reduction
 {-|
 Zero-cost wrapper over `Reduction`,
 which provides instances, implementing parallel composition.
+
+>>> :{
+  extract $ feedList [1,2,3,4] $ unpar $
+    (,) <$>
+      par (take 2 list) <*>
+      par (take 3 list)
+:}
+([1,2],[1,2,3])
 -}
 newtype ParReduction input output = ParReduction (Reduction input output)
 
@@ -311,6 +319,14 @@ par = ParReduction
 {-|
 Zero-cost wrapper over `Reduction`,
 which provides instances, implementing sequential composition.
+
+>>> :{
+  extract $ feedList [1,2,3,4] $ unseq $ do
+    a <- seq $ take 2 $ sum
+    b <- seq $ product
+    return (a, b)
+:}
+(3,12)
 -}
 newtype SeqReduction input output = SeqReduction (Reduction input output)
 
