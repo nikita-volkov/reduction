@@ -11,6 +11,9 @@ module Reduction
   product,
   list,
   reverseList,
+  -- *** Attoparsec integration
+  textParser,
+  byteStringParser,
   -- ** Transformation
   take,
   drop,
@@ -42,6 +45,9 @@ where
 import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop)
 import qualified Data.Vector.Generic as Vec
 import qualified Control.Comonad as Comonad
+import qualified Data.Attoparsec.Types as Atto
+import qualified Data.Attoparsec.Text as AttoText
+import qualified Data.Attoparsec.ByteString as AttoByteString
 
 
 -- * Reduction
@@ -152,6 +158,44 @@ It's faster than `list`.
 -}
 reverseList :: Reduction a [a]
 reverseList = foldl (flip (:)) []
+
+-- *** Attoparsec
+-------------------------
+
+{-|
+Convert an Attoparsec text parser into reduction over text chunks.
+
+>>> Data.Attoparsec.Text.decimal & textParser & feed "123" & feed "45" & extract
+Right 12345
+-}
+textParser :: AttoText.Parser o -> Reduction Text (Either String o)
+textParser parser =
+  Ongoing
+    (extract (parserResult (AttoText.parse parser "")))
+    (parserResult . AttoText.parse parser)
+
+{-|
+Convert an Attoparsec bytestring parser into reduction bytestring chunks.
+-}
+byteStringParser :: AttoByteString.Parser o -> Reduction ByteString (Either String o)
+byteStringParser parser =
+  Ongoing
+    (extract (parserResult (AttoByteString.parse parser "")))
+    (parserResult . AttoByteString.parse parser)
+
+parserResult :: Monoid i => Atto.IResult i o -> Reduction i (Either String o)
+parserResult = let
+  failureString context details = case context of
+    [] -> details
+    _ -> intercalate " > " context <> ": " <> details
+  terminateCont cont = case cont mempty of
+    Atto.Done _ o -> Right o
+    Atto.Fail _ context details -> Left (failureString context details)
+    _ -> Left "Result: incomplete input"
+  in \ case
+    Atto.Partial cont -> Ongoing (terminateCont cont) (parserResult . cont)
+    Atto.Done _ o -> Terminated (Right o)
+    Atto.Fail _ context details -> Terminated (Left (failureString context details))
 
 -- ** Transformation
 -------------------------
