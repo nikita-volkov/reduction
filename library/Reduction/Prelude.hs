@@ -78,6 +78,20 @@ import Unsafe.Coerce as Exports
 -------------------------
 import Control.Selective as Exports
 
+-- semigroupoids
+-------------------------
+import Data.Bifunctor.Apply as Exports
+import Data.Functor.Alt as Exports hiding (($>), many, some, optional)
+import Data.Functor.Apply as Exports hiding (($>))
+import Data.Functor.Bind as Exports hiding (join, ($>))
+import Data.Functor.Extend as Exports
+import Data.Functor.Plus as Exports hiding (($>), some, many, optional)
+import Data.Semigroup.Bifoldable as Exports
+import Data.Semigroup.Bitraversable as Exports
+import Data.Semigroup.Foldable as Exports
+import Data.Semigroup.Traversable as Exports
+import Data.Semigroupoid as Exports
+
 -- text
 -------------------------
 import Data.Text as Exports (Text)

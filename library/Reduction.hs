@@ -242,6 +242,14 @@ selectPar = \ case
     Left output1 -> fmap ($ output1)
     Right output -> const (Terminated output)
 
+altPar :: Reduction input a -> Reduction input a -> Reduction input a
+altPar = \ case
+  Ongoing terminate1 consume1 -> \ case
+    Ongoing terminate2 consume2 ->
+      Ongoing terminate1 (\ i -> altPar (consume1 i) (consume2 i))
+    Terminated output2 -> Terminated output2
+  Terminated output1 -> const (Terminated output1)
+
 apSeq :: Reduction input (a -> b) -> Reduction input a -> Reduction input b
 apSeq = \ case
   Ongoing terminate1 consume1 -> \ reduction2 ->
@@ -303,6 +311,9 @@ instance Applicative (ParReduction input) where
 
 instance Selective (ParReduction input) where
   select = parBinOp selectPar
+
+instance Alt (ParReduction input) where
+  (<!>) = parBinOp altPar
 
 parBinOp op (ParReduction red1) (ParReduction red2) = ParReduction (op red1 red2)
 
