@@ -12,13 +12,13 @@ module Reduction
   list,
   reverseList,
   -- *** Attoparsec integration
-  textParser,
-  byteStringParser,
+  parseText,
+  parseByteString,
   -- ** Transformation
   take,
   drop,
   -- *** Attoparsec integration
-  reduceTextParserResults,
+  parseTextStream,
   -- *** Feeding
   -- |
   -- Utilities allowing you to update a reduction
@@ -169,11 +169,11 @@ reverseList = foldl (flip (:)) []
 {-|
 Convert an Attoparsec text parser into reduction over text chunks.
 
->>> Data.Attoparsec.Text.decimal & textParser & feed "123" & feed "45" & extract
+>>> Data.Attoparsec.Text.decimal & parseText & feed "123" & feed "45" & extract
 Right 12345
 -}
-textParser :: AttoText.Parser o -> Reduction Text (Either String o)
-textParser parser =
+parseText :: AttoText.Parser o -> Reduction Text (Either String o)
+parseText parser =
   Ongoing
     (extract (parserResult (AttoText.parse parser "")))
     (parserResult . AttoText.parse parser)
@@ -181,8 +181,8 @@ textParser parser =
 {-|
 Convert an Attoparsec bytestring parser into reduction bytestring chunks.
 -}
-byteStringParser :: AttoByteString.Parser o -> Reduction ByteString (Either String o)
-byteStringParser parser =
+parseByteString :: AttoByteString.Parser o -> Reduction ByteString (Either String o)
+parseByteString parser =
   Ongoing
     (extract (parserResult (AttoByteString.parse parser "")))
     (parserResult . AttoByteString.parse parser)
@@ -245,12 +245,12 @@ Parse a stream of values, reducing it to a final result.
 >>> :{
   let
     parser = Data.Attoparsec.Text.decimal <* Data.Attoparsec.Text.char ','
-    in list & reduceTextParserResults parser & feedList ["12,", "3", ",4,"] & extract
+    in list & parseTextStream parser & feedList ["12,", "3", ",4,"] & extract
 :}
 Right [12,3,4]
 -}
-reduceTextParserResults :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
-reduceTextParserResults parser = let
+parseTextStream :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
+parseTextStream parser = let
   handleResult = \ case
     Atto.Partial cont -> \ case
       Ongoing terminate consume ->
