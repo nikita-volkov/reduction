@@ -39,6 +39,7 @@ module Reduction
   feedList,
   feedVector,
   feedByteString,
+  feedText,
   feedFoldable,
   -- ** Compositional conversion
   unpar,
@@ -61,6 +62,7 @@ import qualified Data.Attoparsec.Text as AttoText
 import qualified Data.Attoparsec.ByteString as AttoByteString
 import qualified Reduction.String as String
 import qualified Data.Text as Text
+import qualified Data.Text.Unsafe as Text
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Unsafe as ByteString
 
@@ -442,6 +444,25 @@ Update reduction by feeding each byte of a bytestring to it.
 {-# INLINABLE feedByteString #-}
 feedByteString :: ByteString -> Reduction Word8 output -> Reduction Word8 output
 feedByteString = feedIndexable ByteString.length ByteString.unsafeIndex
+
+{-|
+Update reduction by feeding each character of a text to it.
+
+>>> list & feedText "АБВГ" & extract
+"\1040\1041\1042\1043"
+-}
+{-# INLINABLE feedText #-}
+feedText :: Text -> Reduction Char output -> Reduction Char output
+feedText text = let
+  length = Text.lengthWord16 text
+  iterate index = \ case
+    Ongoing terminate consume -> if index < length
+      then let
+        Text.Iter char delta = Text.iter text index
+        in iterate (index + delta) (consume char)
+      else Ongoing terminate consume
+    terminated -> terminated
+  in iterate 0
 
 {-|
 Update reduction by feeding a vector of inputs to it.
