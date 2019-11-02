@@ -25,6 +25,7 @@ module Reduction
   either,
   reduceByteStringBytes,
   reduceTextChars,
+  reduceUnique,
   -- *** Attoparsec integration
   reduceTextParsingResults,
   reduceByteStringParsingResults,
@@ -67,6 +68,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.Unsafe as Text
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Unsafe as ByteString
+import qualified Data.HashMap.Strict as HashMap
 
 
 -- * Reduction
@@ -379,6 +381,28 @@ feedAndReduce :: (i2 -> Reduction i1 o -> Reduction i1 o) -> Reduction i1 o -> R
 feedAndReduce feed = let
   loop reduction = Ongoing (extract reduction) (\ chunk -> loop (feed chunk reduction))
   in loop
+
+{-|
+Focus a reduction on unique inputs.
+
+>>> list & reduceUnique & feedList [1,2,1,3] & extract
+[1,2,3]
+-}
+{-# INLINABLE reduceUnique #-}
+reduceUnique :: (Eq a, Hashable a) => Reduction a b -> Reduction a b
+reduceUnique = let
+  alteration = \ case
+    Just _ -> (True, Just ())
+    Nothing -> (False, Just ())
+  loop !map = \ case
+    Ongoing terminate consume ->
+      Ongoing terminate $ \ i -> let
+        (exists, newMap) = HashMap.alterF alteration i map
+        in if exists
+          then loop newMap (Ongoing terminate consume)
+          else loop newMap (consume i)
+    Terminated output -> Terminated output
+  in loop HashMap.empty
 
 -- *** Attoparsec integration
 -------------------------

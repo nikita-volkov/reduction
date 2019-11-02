@@ -110,3 +110,7 @@ import Data.ByteString as Exports (ByteString)
 -- vector
 -------------------------
 import Data.Vector.Generic as Exports (Vector)
+
+-- hashable
+-------------------------
+import Data.Hashable as Exports (Hashable)
