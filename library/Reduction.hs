@@ -59,6 +59,11 @@ instance Comonad.Comonad (Reduction input) where
     Ongoing terminate consume -> Ongoing (Ongoing terminate consume) (Comonad.duplicate . consume)
     Terminated output -> Terminated (Terminated output)
 
+instance Profunctor Reduction where
+  dimap proj1 proj2 = \ case
+    Ongoing terminate consume -> Ongoing (proj2 terminate) (dimap proj1 proj2 . consume . proj1)
+    Terminated output -> Terminated (proj2 output)
+
 -- ** Execution
 -------------------------
 

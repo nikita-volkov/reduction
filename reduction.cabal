@@ -27,6 +27,7 @@ library
     base >=4.9 && <5,
     bytestring >=0.10.10 && <0.11,
     comonad >=5 && <6,
+    profunctors >=5 && <6,
     selective >=0.3 && <0.4,
     semigroupoids >=5 && <6,
     text >=1 && <2,

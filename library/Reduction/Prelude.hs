@@ -78,6 +78,13 @@ import Unsafe.Coerce as Exports
 -------------------------
 import Control.Selective as Exports
 
+-- profunctors
+-------------------------
+import Data.Profunctor.Unsafe as Exports
+import Data.Profunctor.Choice as Exports
+import Data.Profunctor.Closed as Exports
+import Data.Profunctor.Strong as Exports
+
 -- semigroupoids
 -------------------------
 import Data.Bifunctor.Apply as Exports
