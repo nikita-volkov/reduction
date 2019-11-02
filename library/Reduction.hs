@@ -48,6 +48,7 @@ import qualified Control.Comonad as Comonad
 import qualified Data.Attoparsec.Types as Atto
 import qualified Data.Attoparsec.Text as AttoText
 import qualified Data.Attoparsec.ByteString as AttoByteString
+import qualified Reduction.String as String
 
 
 -- * Reduction
@@ -185,17 +186,14 @@ byteStringParser parser =
 
 parserResult :: Monoid i => Atto.IResult i o -> Reduction i (Either String o)
 parserResult = let
-  failureString context details = case context of
-    [] -> details
-    _ -> intercalate " > " context <> ": " <> details
   terminateCont cont = case cont mempty of
     Atto.Done _ o -> Right o
-    Atto.Fail _ context details -> Left (failureString context details)
+    Atto.Fail _ context details -> Left (String.attoFailure context details)
     _ -> Left "Result: incomplete input"
   in \ case
     Atto.Partial cont -> Ongoing (terminateCont cont) (parserResult . cont)
     Atto.Done _ o -> Terminated (Right o)
-    Atto.Fail _ context details -> Terminated (Left (failureString context details))
+    Atto.Fail _ context details -> Terminated (Left (String.attoFailure context details))
 
 -- ** Transformation
 -------------------------

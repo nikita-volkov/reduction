@@ -23,6 +23,7 @@ library
     Reduction
   other-modules:
     Reduction.Prelude
+    Reduction.String
   build-depends:
     attoparsec >=0.13 && <0.14,
     base >=4.9 && <5,
