@@ -17,6 +17,8 @@ module Reduction
   -- ** Transformation
   take,
   drop,
+  -- *** Attoparsec integration
+  reduceTextParserResults,
   -- *** Feeding
   -- |
   -- Utilities allowing you to update a reduction
@@ -49,6 +51,7 @@ import qualified Data.Attoparsec.Types as Atto
 import qualified Data.Attoparsec.Text as AttoText
 import qualified Data.Attoparsec.ByteString as AttoByteString
 import qualified Reduction.String as String
+import qualified Data.Text as Text
 
 
 -- * Reduction
@@ -232,6 +235,37 @@ drop amount = if amount > 0
     Ongoing terminate consume -> Ongoing terminate (const (drop (amount - 1) reduction))
     _ -> reduction
   else id
+
+-- *** Attoparsec integration
+-------------------------
+
+{-|
+Parse a stream of values, reducing it to a final result.
+
+>>> :{
+  let
+    parser = Data.Attoparsec.Text.decimal <* Data.Attoparsec.Text.char ','
+    in list & reduceTextParserResults parser & feedList ["12,", "3", ",4,"] & extract
+:}
+Right [12,3,4]
+-}
+reduceTextParserResults :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
+reduceTextParserResults parser = let
+  handleResult = \ case
+    Atto.Partial cont -> \ case
+      Ongoing terminate consume ->
+        Ongoing
+          (Right terminate)
+          (\ chunk -> handleResult (cont chunk) (Ongoing terminate consume))
+      Terminated output -> Terminated (Right output)
+    Atto.Done remainderInput value -> \ case
+      Ongoing _ consume ->
+        handleResult
+          (AttoText.parse parser remainderInput)
+          (consume value)
+      Terminated output -> Terminated (Right output)
+    Atto.Fail _ context details -> const (Terminated (Left (String.attoFailure context details)))
+  in handleResult (AttoText.parse parser "")
 
 -- *** Feeding
 -------------------------
