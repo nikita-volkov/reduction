@@ -114,6 +114,7 @@ E.g.,
 >>> sum & feedList [1,2,3] & extract
 6
 -}
+{-# INLINABLE extract #-}
 extract :: Reduction input output -> output
 extract = \ case
   Ongoing terminate _ -> terminate
@@ -125,6 +126,7 @@ extract = \ case
 {-|
 Reduction, performing strict left fold.
 -}
+{-# INLINABLE foldl #-}
 foldl :: (b -> a -> b) -> b -> Reduction a b
 foldl step = let
   fromState !state = Ongoing state (fromState . step state)
@@ -133,12 +135,14 @@ foldl step = let
 {-|
 Concatenate monoid values.
 -}
+{-# INLINABLE concat #-}
 concat :: Monoid a => Reduction a a
 concat = foldl mappend mempty
 
 {-|
 Reduction, counting the visited elements.
 -}
+{-# INLINABLE count #-}
 count :: Num count => Reduction a count
 count = let
   counted !n = Ongoing n (const (counted (n + 1)))
@@ -147,12 +151,14 @@ count = let
 {-|
 Reduction, summarizing all visited elements.
 -}
+{-# INLINABLE sum #-}
 sum :: Num a => Reduction a a
 sum = foldl (+) 0
 
 {-|
 Reduction, multiplying all visited elements.
 -}
+{-# INLINABLE product #-}
 product :: Num a => Reduction a a
 product = foldl (*) 1
 
@@ -161,6 +167,7 @@ Reduction, collecting all visited elements into a list.
 It's slower than `reverseList`.
 
 -}
+{-# INLINABLE list #-}
 list :: Reduction a [a]
 list = fmap reverse reverseList
 
@@ -168,6 +175,7 @@ list = fmap reverse reverseList
 Reduction, collecting all visited elements into a list in reverse order.
 It's faster than `list`.
 -}
+{-# INLINABLE reverseList #-}
 reverseList :: Reduction a [a]
 reverseList = foldl (flip (:)) []
 
@@ -180,6 +188,7 @@ Convert an Attoparsec text parser into reduction over text chunks.
 >>> Data.Attoparsec.Text.decimal & parseText & feed "123" & feed "45" & extract
 Right 12345
 -}
+{-# INLINABLE parseText #-}
 parseText :: AttoText.Parser o -> Reduction Text (Either String o)
 parseText parser =
   Ongoing
@@ -189,12 +198,14 @@ parseText parser =
 {-|
 Convert an Attoparsec bytestring parser into reduction bytestring chunks.
 -}
+{-# INLINABLE parseByteString #-}
 parseByteString :: AttoByteString.Parser o -> Reduction ByteString (Either String o)
 parseByteString parser =
   Ongoing
     (extract (parserResult (AttoByteString.parse parser "")))
     (parserResult . AttoByteString.parse parser)
 
+{-# INLINABLE parserResult #-}
 parserResult :: Monoid i => Atto.IResult i o -> Reduction i (Either String o)
 parserResult = let
   terminateCont cont = case cont mempty of
@@ -209,11 +220,13 @@ parserResult = let
 -- ** Transformation
 -------------------------
 
+{-# INLINABLE forceTermination #-}
 forceTermination :: Reduction a b -> Reduction a b
 forceTermination = \ case
   Ongoing terminate _ -> Terminated terminate
   terminated -> terminated
 
+{-# INLINABLE mapOngoing #-}
 mapOngoing :: (Reduction a b -> Reduction a b) -> Reduction a b -> Reduction a b
 mapOngoing fn = \ case
   Ongoing terminate consume -> Ongoing terminate (fn . consume)
@@ -226,6 +239,7 @@ terminating early.
 >>> list & take 2 & feedList [1,2,3,4] & extract
 [1,2]
 -}
+{-# INLINABLE take #-}
 take :: Int -> Reduction a b -> Reduction a b
 take amount = if amount > 0
   then mapOngoing (take (pred amount))
@@ -237,6 +251,7 @@ Make reduction ignore the first elements.
 >>> list & drop 2 & feedList [1,2,3,4] & extract
 [3,4]
 -}
+{-# INLINABLE drop #-}
 drop :: Int -> Reduction a b -> Reduction a b
 drop amount = if amount > 0
   then \ reduction -> case reduction of
@@ -257,6 +272,7 @@ Parse a stream of values, reducing it to a final result.
 :}
 Right [12,3,4]
 -}
+{-# INLINABLE parseTextStream #-}
 parseTextStream :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
 parseTextStream parser = let
   handleResult = \ case
@@ -278,6 +294,7 @@ parseTextStream parser = let
 {-|
 Parse a stream of values, reducing it to a final result.
 -}
+{-# INLINABLE parseByteStringStream #-}
 parseByteStringStream :: AttoByteString.Parser a -> Reduction a b -> Reduction ByteString (Either String b)
 parseByteStringStream parser = let
   handleResult = \ case
@@ -302,6 +319,7 @@ parseByteStringStream parser = let
 {-|
 Update reduction by feeding one input to it.
 -}
+{-# INLINABLE feed #-}
 feed :: a -> Reduction a output -> Reduction a output
 feed input = \ case
   Ongoing _ consume -> consume input
@@ -310,6 +328,7 @@ feed input = \ case
 {-|
 Update reduction by feeding a list of inputs to it.
 -}
+{-# INLINABLE feedList #-}
 feedList :: [a] -> Reduction a output -> Reduction a output
 feedList = \ case
   input : remainingList -> \ case
@@ -320,6 +339,7 @@ feedList = \ case
 {-|
 Update reduction by feeding a vector of inputs to it.
 -}
+{-# INLINABLE feedVector #-}
 feedVector :: Vector vec input => vec input -> Reduction input output -> Reduction input output
 feedVector vec = let
   length = Vec.length vec
@@ -333,6 +353,7 @@ feedVector vec = let
 {-|
 Update reduction by feeding a foldable of inputs to it.
 -}
+{-# INLINABLE feedFoldable #-}
 feedFoldable :: Foldable f => f input -> Reduction input output -> Reduction input output
 feedFoldable foldable reduction =
   foldr
@@ -347,6 +368,7 @@ feedFoldable foldable reduction =
 -- *** Composition
 -------------------------
 
+{-# INLINABLE apPar #-}
 apPar :: Reduction input (a -> b) -> Reduction input a -> Reduction input b
 apPar = \ case
   Ongoing terminate1 consume1 -> \ case
@@ -363,6 +385,7 @@ apPar = \ case
       in Ongoing terminate consume
   Terminated output1 -> fmap output1
 
+{-# INLINABLE selectPar #-}
 selectPar :: Reduction input (Either a b) -> Reduction input (a -> b) -> Reduction input b
 selectPar = \ case
   Ongoing terminate1 consume1 -> \ case
@@ -378,6 +401,7 @@ selectPar = \ case
     Left output1 -> fmap ($ output1)
     Right output -> const (Terminated output)
 
+{-# INLINABLE altPar #-}
 altPar :: Reduction input a -> Reduction input a -> Reduction input a
 altPar = \ case
   Ongoing terminate1 consume1 -> \ case
@@ -386,6 +410,7 @@ altPar = \ case
     Terminated output2 -> Terminated output2
   Terminated output1 -> const (Terminated output1)
 
+{-# INLINABLE apSeq #-}
 apSeq :: Reduction input (a -> b) -> Reduction input a -> Reduction input b
 apSeq = \ case
   Ongoing terminate1 consume1 -> \ reduction2 ->
@@ -394,6 +419,7 @@ apSeq = \ case
       (\ input -> apSeq (consume1 input) reduction2)
   Terminated output1 -> fmap output1
 
+{-# INLINABLE bindSeq #-}
 bindSeq :: (a -> Reduction input b) -> Reduction input a -> Reduction input b
 bindSeq getReduction2 = 
   let
@@ -412,12 +438,14 @@ bindSeq getReduction2 =
 {-|
 Normalize parallel reduction.
 -}
+{-# INLINABLE unpar #-}
 unpar :: ParReduction input output -> Reduction input output
 unpar (ParReduction reduction) = reduction
 
 {-|
 Normalize sequential reduction.
 -}
+{-# INLINABLE unseq #-}
 unseq :: SeqReduction input output -> Reduction input output
 unseq (SeqReduction reduction) = reduction
 
@@ -469,6 +497,7 @@ parBinOp op (ParReduction red1) (ParReduction red2) = ParReduction (op red1 red2
 {-|
 Parallelize normal reduction.
 -}
+{-# INLINABLE par #-}
 par :: Reduction input output -> ParReduction input output
 par = ParReduction
 
@@ -516,5 +545,6 @@ seqBinOp op (SeqReduction red1) (SeqReduction red2) = SeqReduction (op red1 red2
 {-|
 Sequentialize normal reduction.
 -}
+{-# INLINABLE seq #-}
 seq :: Reduction input output -> SeqReduction input output
 seq = SeqReduction
