@@ -480,6 +480,9 @@ par = ParReduction
 Zero-cost wrapper over `Reduction`,
 which provides instances, implementing sequential composition.
 
+>>> ((,) <$> seq (take 2 list) <*> seq list) & unseq & feedList [1,2,3,4] & extract
+([1,2],[3,4])
+
 >>> :{
   extract $ feedList [1,2,3,4] $ unseq $ do
     a <- seq $ take 2 $ sum
@@ -498,7 +501,7 @@ deriving instance Choice SeqReduction
 
 instance Applicative (SeqReduction input) where
   pure a = SeqReduction (Terminated a)
-  (<*>) = seqBinOp apPar
+  (<*>) = seqBinOp apSeq
 
 instance Selective (SeqReduction input) where
   select = selectM
