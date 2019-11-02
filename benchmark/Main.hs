@@ -41,6 +41,14 @@ main = defaultMain
             fold = liftA2 (,) Foldl.sum Foldl.length
             in nf (Foldl.fold fold) input
         ]
+    ,
+    bgroup "null (early termination)" $ let
+      input = [0..999] :: [Int]
+      in [
+          bench "Reduction" $ nf (reduceList Reduction.null) input
+          ,
+          bench "Foldl" $ nf (Foldl.fold Foldl.null) input
+        ]
   ]
 
 reduceList :: Reduction a b -> [a] -> b
