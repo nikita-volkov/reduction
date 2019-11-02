@@ -336,6 +336,10 @@ newtype ParReduction input output = ParReduction (Reduction input output)
 
 deriving instance Functor (ParReduction input)
 
+deriving instance Profunctor ParReduction
+
+deriving instance Choice ParReduction
+
 {-|
 Feeds all reductions, combining their results.
 -}
@@ -382,6 +386,10 @@ which provides instances, implementing sequential composition.
 newtype SeqReduction input output = SeqReduction (Reduction input output)
 
 deriving instance Functor (SeqReduction input)
+
+deriving instance Profunctor SeqReduction
+
+deriving instance Choice SeqReduction
 
 instance Applicative (SeqReduction input) where
   pure a = SeqReduction (Terminated a)
