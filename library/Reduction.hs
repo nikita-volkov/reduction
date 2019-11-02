@@ -112,6 +112,10 @@ instance Profunctor Reduction where
   dimap proj1 proj2 = \ case
     Ongoing terminate consume -> Ongoing (proj2 terminate) (dimap proj1 proj2 . consume . proj1)
     Terminated output -> Terminated (proj2 output)
+  lmap proj = \ case
+    Ongoing terminate consume -> Ongoing terminate (lmap proj . consume . proj)
+    Terminated output -> Terminated output
+  rmap = fmap
 
 instance Choice Reduction where
   right' = \ case
