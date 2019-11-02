@@ -431,11 +431,18 @@ Update reduction by feeding a vector of inputs to it.
 -}
 {-# INLINABLE feedVector #-}
 feedVector :: Vector vec input => vec input -> Reduction input output -> Reduction input output
-feedVector vec = let
-  length = Vec.length vec
+feedVector = feedIndexable Vec.length Vec.unsafeIndex
+
+{-|
+Update reduction by feeding a vector of inputs to it.
+-}
+{-# INLINE feedIndexable #-}
+feedIndexable :: (indexable -> Int) -> (indexable -> Int -> input) -> indexable -> Reduction input output -> Reduction input output
+feedIndexable getLength getElement indexable = let
+  length = getLength indexable
   iterate index = \ case
     Ongoing terminate consume -> if index < length
-      then iterate (succ index) (consume (Vec.unsafeIndex vec index))
+      then iterate (succ index) (consume (getElement indexable index))
       else Ongoing terminate consume
     terminated -> terminated
   in iterate 0
