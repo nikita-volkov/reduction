@@ -19,6 +19,7 @@ module Reduction
   drop,
   -- *** Attoparsec integration
   parseTextStream,
+  parseByteStringStream,
   -- *** Feeding
   -- |
   -- Utilities allowing you to update a reduction
@@ -266,6 +267,27 @@ parseTextStream parser = let
       Terminated output -> Terminated (Right output)
     Atto.Fail _ context details -> const (Terminated (Left (String.attoFailure context details)))
   in handleResult (AttoText.parse parser "")
+
+{-|
+Parse a stream of values, reducing it to a final result.
+-}
+parseByteStringStream :: AttoByteString.Parser a -> Reduction a b -> Reduction ByteString (Either String b)
+parseByteStringStream parser = let
+  handleResult = \ case
+    Atto.Partial cont -> \ case
+      Ongoing terminate consume ->
+        Ongoing
+          (Right terminate)
+          (\ chunk -> handleResult (cont chunk) (Ongoing terminate consume))
+      Terminated output -> Terminated (Right output)
+    Atto.Done remainderInput value -> \ case
+      Ongoing _ consume ->
+        handleResult
+          (AttoByteString.parse parser remainderInput)
+          (consume value)
+      Terminated output -> Terminated (Right output)
+    Atto.Fail _ context details -> const (Terminated (Left (String.attoFailure context details)))
+  in handleResult (AttoByteString.parse parser "")
 
 -- *** Feeding
 -------------------------
