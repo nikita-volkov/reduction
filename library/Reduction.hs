@@ -18,6 +18,8 @@ module Reduction
   -- ** Transformation
   take,
   drop,
+  takeWhile,
+  dropWhile,
   -- *** Attoparsec integration
   parseTextStream,
   parseByteStringStream,
@@ -46,7 +48,7 @@ module Reduction
 )
 where
 
-import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop, concat)
+import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop, concat, takeWhile, dropWhile)
 import qualified Data.Vector.Generic as Vec
 import qualified Control.Comonad as Comonad
 import qualified Data.Attoparsec.Types as Atto
@@ -258,6 +260,36 @@ drop amount = if amount > 0
     Ongoing terminate consume -> Ongoing terminate (const (drop (amount - 1) reduction))
     _ -> reduction
   else id
+
+{-|
+>>> list & takeWhile (< 3) & feedList [1,2,3,4] & extract
+[1,2]
+-}
+{-# INLINABLE takeWhile #-}
+takeWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
+takeWhile predicate = let
+  loop = \ case
+    Ongoing terminate consume ->
+      Ongoing terminate $ \ input -> if predicate input
+        then loop (consume input)
+        else Terminated terminate
+    Terminated output -> Terminated output
+  in loop
+
+{-|
+>>> list & dropWhile (< 3) & feedList [1,2,3,4] & extract
+[3,4]
+-}
+{-# INLINABLE dropWhile #-}
+dropWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
+dropWhile predicate = let
+  loop = \ case
+    Ongoing terminate consume ->
+      Ongoing terminate $ \ input -> if predicate input
+        then loop (Ongoing terminate consume)
+        else consume input
+    Terminated output -> Terminated output
+  in loop
 
 -- *** Attoparsec integration
 -------------------------
