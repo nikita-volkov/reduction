@@ -222,7 +222,7 @@ reverseList = foldl (flip (:)) []
 -------------------------
 
 {-|
-Convert an Attoparsec text parser into reduction over text chunks.
+Convert an Attoparsec text parser into a reduction over text chunks.
 
 >>> Data.Attoparsec.Text.decimal & parseText & feed "123" & feed "45" & extract
 Right 12345
@@ -235,7 +235,7 @@ parseText parser =
     (parserResult . AttoText.parse parser)
 
 {-|
-Convert an Attoparsec bytestring parser into reduction bytestring chunks.
+Convert an Attoparsec bytestring parser into a reduction over bytestring chunks.
 -}
 {-# INLINABLE parseByteString #-}
 parseByteString :: AttoByteString.Parser o -> Reduction ByteString (Either String o)
