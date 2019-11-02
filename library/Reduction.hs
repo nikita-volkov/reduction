@@ -38,6 +38,7 @@ module Reduction
   feed,
   feedList,
   feedVector,
+  feedByteString,
   feedFoldable,
   -- ** Compositional conversion
   unpar,
@@ -60,6 +61,8 @@ import qualified Data.Attoparsec.Text as AttoText
 import qualified Data.Attoparsec.ByteString as AttoByteString
 import qualified Reduction.String as String
 import qualified Data.Text as Text
+import qualified Data.ByteString as ByteString
+import qualified Data.ByteString.Unsafe as ByteString
 
 
 -- * Reduction
@@ -432,6 +435,13 @@ Update reduction by feeding a vector of inputs to it.
 {-# INLINABLE feedVector #-}
 feedVector :: Vector vec input => vec input -> Reduction input output -> Reduction input output
 feedVector = feedIndexable Vec.length Vec.unsafeIndex
+
+{-|
+Update reduction by feeding each byte of a bytestring to it.
+-}
+{-# INLINABLE feedByteString #-}
+feedByteString :: ByteString -> Reduction Word8 output -> Reduction Word8 output
+feedByteString = feedIndexable ByteString.length ByteString.unsafeIndex
 
 {-|
 Update reduction by feeding a vector of inputs to it.
