@@ -91,6 +91,12 @@ instance Comonad.Comonad (Reduction input) where
     Ongoing terminate consume -> Ongoing (Ongoing terminate consume) (Comonad.duplicate . consume)
     Terminated output -> Terminated (Terminated output)
 
+{-|
+Allows to map over the input using `lmap`:
+
+>>> list & lmap (+ 1) & feedList [1,2,3] & extract
+[2,3,4]
+-}
 instance Profunctor Reduction where
   dimap proj1 proj2 = \ case
     Ongoing terminate consume -> Ongoing (proj2 terminate) (dimap proj1 proj2 . consume . proj1)
