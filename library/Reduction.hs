@@ -47,8 +47,26 @@ import qualified Control.Comonad as Comonad
 -- * Reduction
 -------------------------
 
+{-|
+State of reduction.
+A powerful replacement to folding functions,
+with the following features:
+
+- Feeding from multiple sources of data.
+- Early termination. Stops consuming input as soon as it stops needing it.
+- Being itself a state value allows it to be fed with data incrementally or serve as context in the `State` monad.
+- Composes well. Providing both parallel and sequential APIs.
+-}
 data Reduction input output =
-  Ongoing output !(input -> Reduction input output) |
+  {-|
+  State in which it is ready to either terminate or process more input.
+  -}
+  Ongoing
+    output {-^ Terminate. -}
+    !(input -> Reduction input output) {-^ Get the next reduction state by processing more input. -} |
+  {-|
+  State in which it is no longer ready to process more input.
+  -}
   Terminated !output
 
 deriving instance Functor (Reduction input)
