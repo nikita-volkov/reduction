@@ -20,6 +20,7 @@ module Reduction
   drop,
   takeWhile,
   dropWhile,
+  either,
   -- *** Attoparsec integration
   parseTextStream,
   parseByteStringStream,
@@ -48,7 +49,8 @@ module Reduction
 )
 where
 
-import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop, concat, takeWhile, dropWhile)
+import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop, concat, takeWhile, dropWhile, either)
+import qualified Reduction.Prelude as Prelude
 import qualified Data.Vector.Generic as Vec
 import qualified Control.Comonad as Comonad
 import qualified Data.Attoparsec.Types as Atto
@@ -297,6 +299,40 @@ dropWhile predicate = let
     Terminated output -> Terminated output
   in loop
 
+{-|
+Combines two reductions into one processing inputs for either of them.
+
+>>> either list list & feedList [Left 1, Right 2, Left 3, Right 4] & extract
+([1,3],[2,4])
+-}
+{-# INLINABLE either #-}
+either :: Reduction a1 b1 -> Reduction a2 b2 -> Reduction (Either a1 a2) (b1, b2)
+either = \ case
+  Ongoing terminate1 consume1 -> \ case
+    Ongoing terminate2 consume2 ->
+      Ongoing
+        (terminate1, terminate2)
+        (\ case
+          Left a1 -> either (consume1 a1) (Ongoing terminate2 consume2)
+          Right a2 -> either (Ongoing terminate1 consume1) (consume2 a2)
+        )
+    Terminated output2 ->
+      Ongoing
+        (terminate1, output2)
+        (\ case
+          Left a1 -> either (consume1 a1) (Terminated output2)
+          Right a2 -> either (Ongoing terminate1 consume1) (Terminated output2)
+        )
+  Terminated output1 -> \ case
+    Ongoing terminate2 consume2 ->
+      Ongoing
+        (output1, terminate2)
+        (\ case
+          Right a2 -> either (Terminated output1) (consume2 a2)
+          Left a1 -> either (Terminated output1) (Ongoing terminate2 consume2)
+        )
+    Terminated output2 -> Terminated (output1, output2)
+
 -- *** Attoparsec integration
 -------------------------
 
@@ -429,12 +465,12 @@ selectPar = \ case
   Ongoing terminate1 consume1 -> \ case
     Ongoing terminate2 consume2 ->
       Ongoing
-        (either terminate2 id terminate1)
+        (Prelude.either terminate2 id terminate1)
         (\ input -> selectPar (consume1 input) (consume2 input))
     Terminated output2 ->
       Ongoing
-        (either output2 id terminate1)
-        (fmap (either output2 id) . consume1)
+        (Prelude.either output2 id terminate1)
+        (fmap (Prelude.either output2 id) . consume1)
   Terminated output1 -> case output1 of
     Left output1 -> fmap ($ output1)
     Right output -> const (Terminated output)
