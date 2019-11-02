@@ -6,6 +6,7 @@ module Reduction
   extract,
   -- ** Construction
   foldl,
+  concat,
   count,
   sum,
   product,
@@ -45,7 +46,7 @@ module Reduction
 )
 where
 
-import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop)
+import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop, concat)
 import qualified Data.Vector.Generic as Vec
 import qualified Control.Comonad as Comonad
 import qualified Data.Attoparsec.Types as Atto
@@ -128,6 +129,12 @@ foldl :: (b -> a -> b) -> b -> Reduction a b
 foldl step = let
   fromState !state = Ongoing state (fromState . step state)
   in fromState
+
+{-|
+Concatenate monoid values.
+-}
+concat :: Monoid a => Reduction a a
+concat = foldl mappend mempty
 
 {-|
 Reduction, counting the visited elements.
