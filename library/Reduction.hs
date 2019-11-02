@@ -64,6 +64,14 @@ instance Profunctor Reduction where
     Ongoing terminate consume -> Ongoing (proj2 terminate) (dimap proj1 proj2 . consume . proj1)
     Terminated output -> Terminated (proj2 output)
 
+instance Choice Reduction where
+  right' = \ case
+    Ongoing terminate consume ->
+      Ongoing (Right terminate) $ \ case
+        Left o -> Terminated (Left o)
+        Right i -> right' (consume i)
+    Terminated o -> Terminated (Right o)
+
 -- ** Execution
 -------------------------
 
