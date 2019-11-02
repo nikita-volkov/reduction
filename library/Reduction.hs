@@ -336,13 +336,22 @@ newtype ParReduction input output = ParReduction (Reduction input output)
 
 deriving instance Functor (ParReduction input)
 
+{-|
+Feeds all reductions, combining their results.
+-}
 instance Applicative (ParReduction input) where
   pure a = ParReduction (Terminated a)
   (<*>) = parBinOp apPar
 
+{-|
+Feeds all reductions, terminating early if possible.
+-}
 instance Selective (ParReduction input) where
   select = parBinOp selectPar
 
+{-|
+Feeds all reductions, getting the result of the one that terminates first.
+-}
 instance Alt (ParReduction input) where
   (<!>) = parBinOp altPar
 
