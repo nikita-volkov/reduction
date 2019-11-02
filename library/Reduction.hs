@@ -26,8 +26,8 @@ module Reduction
   reduceByteStringBytes,
   reduceTextChars,
   -- *** Attoparsec integration
-  parseTextStream,
-  parseByteStringStream,
+  reduceTextParsingResults,
+  reduceByteStringParsingResults,
   -- *** Feeding
   -- |
   -- Utilities allowing you to update a reduction
@@ -389,13 +389,13 @@ Parse a stream of values, reducing it to a final result.
 >>> :{
   let
     parser = Data.Attoparsec.Text.decimal <* Data.Attoparsec.Text.char ','
-    in list & parseTextStream parser & feedList ["12,", "3", ",4,"] & extract
+    in list & reduceTextParsingResults parser & feedList ["12,", "3", ",4,"] & extract
 :}
 Right [12,3,4]
 -}
-{-# INLINABLE parseTextStream #-}
-parseTextStream :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
-parseTextStream parser = let
+{-# INLINABLE reduceTextParsingResults #-}
+reduceTextParsingResults :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
+reduceTextParsingResults parser = let
   handleResult = \ case
     Atto.Partial cont -> \ case
       Ongoing terminate consume ->
@@ -415,9 +415,9 @@ parseTextStream parser = let
 {-|
 Parse a stream of values, reducing it to a final result.
 -}
-{-# INLINABLE parseByteStringStream #-}
-parseByteStringStream :: AttoByteString.Parser a -> Reduction a b -> Reduction ByteString (Either String b)
-parseByteStringStream parser = let
+{-# INLINABLE reduceByteStringParsingResults #-}
+reduceByteStringParsingResults :: AttoByteString.Parser a -> Reduction a b -> Reduction ByteString (Either String b)
+reduceByteStringParsingResults parser = let
   handleResult = \ case
     Atto.Partial cont -> \ case
       Ongoing terminate consume ->
