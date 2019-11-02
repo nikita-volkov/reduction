@@ -23,6 +23,8 @@ module Reduction
   takeWhile,
   dropWhile,
   either,
+  reduceByteStringBytes,
+  reduceTextChars,
   -- *** Attoparsec integration
   parseTextStream,
   parseByteStringStream,
@@ -353,6 +355,26 @@ either = \ case
           Left a1 -> either (Terminated output1) (Ongoing terminate2 consume2)
         )
     Terminated output2 -> Terminated (output1, output2)
+
+{-|
+Lift a reduction on each byte into a reduction on bytestring chunks.
+-}
+reduceByteStringBytes :: Reduction Word8 a -> Reduction ByteString a
+reduceByteStringBytes = feedAndReduce feedByteString
+
+{-|
+Lift a reduction on each char into a reduction on text chunks.
+
+>>> list & reduceTextChars & feedList ["ab", "c", "def"] & extract
+"abcdef"
+-}
+reduceTextChars :: Reduction Char a -> Reduction Text a
+reduceTextChars = feedAndReduce feedText
+
+feedAndReduce :: (i2 -> Reduction i1 o -> Reduction i1 o) -> Reduction i1 o -> Reduction i2 o
+feedAndReduce feed = let
+  loop reduction = Ongoing (extract reduction) (\ chunk -> loop (feed chunk reduction))
+  in loop
 
 -- *** Attoparsec integration
 -------------------------
