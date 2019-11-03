@@ -53,6 +53,22 @@ module Reduction
   feedByteString,
   feedText,
   feedFoldable,
+  -- * Recipies
+  -- ** Math composition
+  {-|
+  While it does seem a bit unusual,
+  you can apply math functions directly to reductions.
+
+  E.g., here's how you can implement an averaging reduction:
+
+  >>> :{
+    let
+      avg :: Reduction Double Double
+      avg = sum / count
+      in avg & feedList [3,2,3,2] & extract
+  :}
+  2.5
+  -}
 )
 where
 
@@ -186,6 +202,44 @@ instance Choice Reduction where
         Left o -> Terminated (Left o)
         Right i -> right' (consume i)
     Terminated o -> Terminated (Right o)
+
+instance Num b => Num (Reduction a b) where
+  (+) = liftA2 (+)
+  (-) = liftA2 (-)
+  (*) = liftA2 (*)
+  negate = fmap negate
+  abs = fmap abs
+  signum = fmap signum
+  fromInteger = pure . fromInteger
+
+instance Fractional b => Fractional (Reduction a b) where
+  fromRational = pure . fromRational
+  (/) = liftA2 (/)
+  recip = fmap recip
+
+instance Floating b => Floating (Reduction a b) where
+  pi = pure pi
+  exp = fmap exp
+  log = fmap log
+  sqrt = fmap sqrt
+  (**) = liftA2 (**)
+  logBase = liftA2 logBase
+  sin = fmap sin
+  cos = fmap cos
+  tan = fmap tan
+  asin = fmap asin
+  acos = fmap acos
+  atan = fmap atan
+  sinh = fmap sinh
+  cosh = fmap cosh
+  tanh = fmap tanh
+  asinh = fmap asinh
+  acosh = fmap acosh
+  atanh = fmap atanh
+  log1p = fmap log1p
+  expm1 = fmap expm1
+  log1pexp = fmap log1pexp
+  log1mexp = fmap log1mexp
 
 -- ** Execution
 -------------------------
