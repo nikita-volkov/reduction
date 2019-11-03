@@ -4,26 +4,26 @@ module Reduction
   Reduction(..),
   -- ** Execution
   extract,
-  -- ** Construction
+  -- ** Targets
   foldl,
-  concat,
+  concatenation,
   count,
   null,
   sum,
   product,
   head,
-  find,
+  searchResult,
   list,
   reverseList,
   strictList,
   reverseStrictList,
   vector,
   hashMap,
-  utf8Decoder,
+  utf8Decoding,
   -- *** Attoparsec integration
-  textParser,
-  byteStringParser,
-  -- ** Transformation
+  textParsing,
+  byteStringParsing,
+  -- ** Transducers
   take,
   drop,
   takeWhile,
@@ -276,7 +276,7 @@ extract = \ case
   Ongoing terminate _ -> terminate
   Terminated output -> output
 
--- ** Construction
+-- ** Targets
 -------------------------
 
 {-|
@@ -291,9 +291,9 @@ foldl step = let
 {-|
 Concatenate monoid values.
 -}
-{-# INLINABLE concat #-}
-concat :: Monoid a => Reduction a a
-concat = foldl mappend mempty
+{-# INLINABLE concatenation #-}
+concatenation :: Monoid a => Reduction a a
+concatenation = foldl mappend mempty
 
 {-|
 Reduction, counting the visited elements.
@@ -336,9 +336,9 @@ head = Ongoing Nothing (Terminated . Just)
 Finds the first matching occurrence.
 Same as @`filter` predicate `head`@.
 -}
-{-# INLINABLE find #-}
-find :: (a -> Bool) -> Reduction a (Maybe a)
-find predicate = filter predicate head
+{-# INLINABLE searchResult #-}
+searchResult :: (a -> Bool) -> Reduction a (Maybe a)
+searchResult predicate = filter predicate head
 
 {-|
 Reduction, collecting all visited elements into a list.
@@ -393,15 +393,15 @@ hashMap = foldl (\ m (k, v) -> HashMap.insert k v m) HashMap.empty
 Decode bytestring chunks using UTF-8,
 producing Nothing in case of errors or unfinished input.
 
->>> utf8Decoder & feedList ["\208", "\144\208", "\145\208", "\146"] & extract
+>>> utf8Decoding & feedList ["\208", "\144\208", "\145\208", "\146"] & extract
 Just "\1040\1041\1042"
 
->>> utf8Decoder & feedList ["\208", "\144\208", "\145\208"] & extract
+>>> utf8Decoding & feedList ["\208", "\144\208", "\145\208"] & extract
 Nothing
 -}
-{-# INLINABLE utf8Decoder #-}
-utf8Decoder :: Reduction ByteString (Maybe Text)
-utf8Decoder = decodeUtf8 (dimap TextBuilder.text TextBuilder.run concat)
+{-# INLINABLE utf8Decoding #-}
+utf8Decoding :: Reduction ByteString (Maybe Text)
+utf8Decoding = decodeUtf8 (dimap TextBuilder.text TextBuilder.run concatenation)
 
 -- *** Attoparsec
 -------------------------
@@ -409,12 +409,12 @@ utf8Decoder = decodeUtf8 (dimap TextBuilder.text TextBuilder.run concat)
 {-|
 Convert an Attoparsec text parser into a reduction over text chunks.
 
->>> Data.Attoparsec.Text.decimal & textParser & feed "123" & feed "45" & extract
+>>> Data.Attoparsec.Text.decimal & textParsing & feed "123" & feed "45" & extract
 Right 12345
 -}
-{-# INLINABLE textParser #-}
-textParser :: AttoText.Parser o -> Reduction Text (Either Text o)
-textParser parser =
+{-# INLINABLE textParsing #-}
+textParsing :: AttoText.Parser o -> Reduction Text (Either Text o)
+textParsing parser =
   Ongoing
     (extract (parserResult (AttoText.parse parser "")))
     (parserResult . AttoText.parse parser)
@@ -422,9 +422,9 @@ textParser parser =
 {-|
 Convert an Attoparsec bytestring parser into a reduction over bytestring chunks.
 -}
-{-# INLINABLE byteStringParser #-}
-byteStringParser :: AttoByteString.Parser o -> Reduction ByteString (Either Text o)
-byteStringParser parser =
+{-# INLINABLE byteStringParsing #-}
+byteStringParsing :: AttoByteString.Parser o -> Reduction ByteString (Either Text o)
+byteStringParsing parser =
   Ongoing
     (extract (parserResult (AttoByteString.parse parser "")))
     (parserResult . AttoByteString.parse parser)
@@ -441,7 +441,7 @@ parserResult = let
     Atto.Done _ o -> Terminated (Right o)
     Atto.Fail _ context details -> Terminated (Left (Text.attoFailure context details))
 
--- ** Transformation
+-- ** Transducers
 -------------------------
 
 {-# INLINABLE forceTermination #-}
