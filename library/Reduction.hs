@@ -54,6 +54,22 @@ module Reduction
   feedText,
   feedFoldable,
   -- * Recipies
+  -- ** List API simulation
+  {-|
+  The focusing transducers can be applied to many standard problems in interesting ways.
+  E.g., here's how you can implement @Data.List.`find`@:
+
+  >>> :{
+    let
+      find :: (a -> Bool) -> [a] -> Maybe a
+      find predicate input = head & onFiltered predicate & feedList input & extract
+      in find (> 3) [1,2,3,4,5,6]
+  :}
+  Just 4
+
+  Due to support for early termination you can be sure that this function will stop
+  traversing the list as soon as it finds the element.
+  -}
   -- ** Math composition
   {-|
   While it does seem a bit unusual,
