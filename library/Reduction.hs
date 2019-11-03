@@ -91,7 +91,8 @@ with the following features:
 - Feeding from multiple sources of data.
 - Early termination. Stops consuming input as soon as it stops needing it.
 - Being itself a state value allows it to be fed with data incrementally or serve as context in the `State` monad.
-- Great composability. Provides both parallel and sequential APIs.
+- Parallel composition. Multiple reductions can be composed into one distributing the inputs between them.
+- Sequential composition. Multiple reductions can be composed into one executing one after the other based on their early termination.
 -}
 data Reduction input output =
   {-|
