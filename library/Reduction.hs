@@ -22,19 +22,19 @@ module Reduction
   parseText,
   parseByteString,
   -- ** Transformation
-  reduceTaken,
-  reduceDropped,
-  reduceTakenWhile,
-  reduceDroppedWhile,
-  reducePartitioned,
-  reduceEither,
-  reduceByteStringBytes,
-  reduceTextChars,
-  reduceUnique,
-  reduceFiltered,
+  onTaken,
+  onDropped,
+  onTakenWhile,
+  onDroppedWhile,
+  onPartitioned,
+  onEither,
+  onByteStringBytes,
+  onTextChars,
+  onUnique,
+  onFiltered,
   -- *** Attoparsec integration
-  reduceTextParsingResults,
-  reduceByteStringParsingResults,
+  onParsedText,
+  onParsedByteString,
   -- *** Feeding
   -- |
   -- Utilities allowing you to update a reduction
@@ -212,11 +212,11 @@ head = Ongoing Nothing (Terminated . Just)
 
 {-|
 Finds the first matching occurrence.
-Same as @`reduceFiltered` predicate `head`@.
+Same as @`onFiltered` predicate `head`@.
 -}
 {-# INLINABLE find #-}
 find :: (a -> Bool) -> Reduction a (Maybe a)
-find predicate = reduceFiltered predicate head
+find predicate = onFiltered predicate head
 
 {-|
 Reduction, collecting all visited elements into a list.
@@ -317,36 +317,36 @@ mapOngoing fn = \ case
 Limit a reduction to consume only the specified amount of elements at max,
 terminating early.
 
->>> list & reduceTaken 2 & feedList [1,2,3,4] & extract
+>>> list & onTaken 2 & feedList [1,2,3,4] & extract
 [1,2]
 -}
-{-# INLINABLE reduceTaken #-}
-reduceTaken :: Int -> Reduction a b -> Reduction a b
-reduceTaken amount = if amount > 0
-  then mapOngoing (reduceTaken (pred amount))
+{-# INLINABLE onTaken #-}
+onTaken :: Int -> Reduction a b -> Reduction a b
+onTaken amount = if amount > 0
+  then mapOngoing (onTaken (pred amount))
   else forceTermination
 
 {-|
 Make reduction ignore the first elements.
 
->>> list & reduceDropped 2 & feedList [1,2,3,4] & extract
+>>> list & onDropped 2 & feedList [1,2,3,4] & extract
 [3,4]
 -}
-{-# INLINABLE reduceDropped #-}
-reduceDropped :: Int -> Reduction a b -> Reduction a b
-reduceDropped amount = if amount > 0
+{-# INLINABLE onDropped #-}
+onDropped :: Int -> Reduction a b -> Reduction a b
+onDropped amount = if amount > 0
   then \ reduction -> case reduction of
-    Ongoing terminate consume -> Ongoing terminate (const (reduceDropped (amount - 1) reduction))
+    Ongoing terminate consume -> Ongoing terminate (const (onDropped (amount - 1) reduction))
     _ -> reduction
   else id
 
 {-|
->>> list & reduceTakenWhile (< 3) & feedList [1,2,3,4] & extract
+>>> list & onTakenWhile (< 3) & feedList [1,2,3,4] & extract
 [1,2]
 -}
-{-# INLINABLE reduceTakenWhile #-}
-reduceTakenWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
-reduceTakenWhile predicate = let
+{-# INLINABLE onTakenWhile #-}
+onTakenWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
+onTakenWhile predicate = let
   loop = \ case
     Ongoing terminate consume ->
       Ongoing terminate $ \ input -> if predicate input
@@ -356,12 +356,12 @@ reduceTakenWhile predicate = let
   in loop
 
 {-|
->>> list & reduceDroppedWhile (< 3) & feedList [1,2,3,4] & extract
+>>> list & onDroppedWhile (< 3) & feedList [1,2,3,4] & extract
 [3,4]
 -}
-{-# INLINABLE reduceDroppedWhile #-}
-reduceDroppedWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
-reduceDroppedWhile predicate = let
+{-# INLINABLE onDroppedWhile #-}
+onDroppedWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
+onDroppedWhile predicate = let
   loop = \ case
     Ongoing terminate consume ->
       Ongoing terminate $ \ input -> if predicate input
@@ -373,63 +373,63 @@ reduceDroppedWhile predicate = let
 {-|
 Generalization of `Data.List.partition`.
 
->>> reducePartitioned odd list list & feedList [1,2,3,4] & extract
+>>> onPartitioned odd list list & feedList [1,2,3,4] & extract
 ([1,3],[2,4])
 -}
-{-# INLINABLE reducePartitioned #-}
-reducePartitioned :: (a -> Bool) -> Reduction a b -> Reduction a c -> Reduction a (b, c)
-reducePartitioned predicate reduction1 reduction2 =
+{-# INLINABLE onPartitioned #-}
+onPartitioned :: (a -> Bool) -> Reduction a b -> Reduction a c -> Reduction a (b, c)
+onPartitioned predicate reduction1 reduction2 =
   lmap (\ i -> if predicate i then Left i else Right i) $
-  reduceEither reduction1 reduction2
+  onEither reduction1 reduction2
 
 {-|
 Combines two reductions into one processing inputs for either of them.
 
->>> reduceEither list list & feedList [Left 1, Right 2, Left 3, Right 4] & extract
+>>> onEither list list & feedList [Left 1, Right 2, Left 3, Right 4] & extract
 ([1,3],[2,4])
 -}
-{-# INLINABLE reduceEither #-}
-reduceEither :: Reduction a1 b1 -> Reduction a2 b2 -> Reduction (Either a1 a2) (b1, b2)
-reduceEither = \ case
+{-# INLINABLE onEither #-}
+onEither :: Reduction a1 b1 -> Reduction a2 b2 -> Reduction (Either a1 a2) (b1, b2)
+onEither = \ case
   Ongoing terminate1 consume1 -> \ case
     Ongoing terminate2 consume2 ->
       Ongoing
         (terminate1, terminate2)
         (\ case
-          Left a1 -> reduceEither (consume1 a1) (Ongoing terminate2 consume2)
-          Right a2 -> reduceEither (Ongoing terminate1 consume1) (consume2 a2)
+          Left a1 -> onEither (consume1 a1) (Ongoing terminate2 consume2)
+          Right a2 -> onEither (Ongoing terminate1 consume1) (consume2 a2)
         )
     Terminated output2 ->
       Ongoing
         (terminate1, output2)
         (\ case
-          Left a1 -> reduceEither (consume1 a1) (Terminated output2)
-          Right a2 -> reduceEither (Ongoing terminate1 consume1) (Terminated output2)
+          Left a1 -> onEither (consume1 a1) (Terminated output2)
+          Right a2 -> onEither (Ongoing terminate1 consume1) (Terminated output2)
         )
   Terminated output1 -> \ case
     Ongoing terminate2 consume2 ->
       Ongoing
         (output1, terminate2)
         (\ case
-          Right a2 -> reduceEither (Terminated output1) (consume2 a2)
-          Left a1 -> reduceEither (Terminated output1) (Ongoing terminate2 consume2)
+          Right a2 -> onEither (Terminated output1) (consume2 a2)
+          Left a1 -> onEither (Terminated output1) (Ongoing terminate2 consume2)
         )
     Terminated output2 -> Terminated (output1, output2)
 
 {-|
 Lift a reduction on each byte into a reduction on bytestring chunks.
 -}
-reduceByteStringBytes :: Reduction Word8 a -> Reduction ByteString a
-reduceByteStringBytes = feedAndReduce feedByteString
+onByteStringBytes :: Reduction Word8 a -> Reduction ByteString a
+onByteStringBytes = feedAndReduce feedByteString
 
 {-|
 Lift a reduction on each char into a reduction on text chunks.
 
->>> list & reduceTextChars & feedList ["ab", "c", "def"] & extract
+>>> list & onTextChars & feedList ["ab", "c", "def"] & extract
 "abcdef"
 -}
-reduceTextChars :: Reduction Char a -> Reduction Text a
-reduceTextChars = feedAndReduce feedText
+onTextChars :: Reduction Char a -> Reduction Text a
+onTextChars = feedAndReduce feedText
 
 feedAndReduce :: (i2 -> Reduction i1 o -> Reduction i1 o) -> Reduction i1 o -> Reduction i2 o
 feedAndReduce feed = let
@@ -439,12 +439,12 @@ feedAndReduce feed = let
 {-|
 Focus a reduction on unique inputs.
 
->>> list & reduceUnique & feedList [1,2,1,3] & extract
+>>> list & onUnique & feedList [1,2,1,3] & extract
 [1,2,3]
 -}
-{-# INLINABLE reduceUnique #-}
-reduceUnique :: (Eq a, Hashable a) => Reduction a b -> Reduction a b
-reduceUnique = let
+{-# INLINABLE onUnique #-}
+onUnique :: (Eq a, Hashable a) => Reduction a b -> Reduction a b
+onUnique = let
   alteration = \ case
     Just _ -> (True, Just ())
     Nothing -> (False, Just ())
@@ -461,12 +461,12 @@ reduceUnique = let
 {-|
 Focus a reduction on filtered inputs.
 
->>> list & reduceFiltered odd & feedList [1,2,3,4,5] & extract
+>>> list & onFiltered odd & feedList [1,2,3,4,5] & extract
 [1,3,5]
 -}
-{-# INLINABLE reduceFiltered #-}
-reduceFiltered :: (a -> Bool) -> Reduction a b -> Reduction a b
-reduceFiltered predicate = let
+{-# INLINABLE onFiltered #-}
+onFiltered :: (a -> Bool) -> Reduction a b -> Reduction a b
+onFiltered predicate = let
   loop = \ case
     Ongoing terminate consume ->
       Ongoing terminate $ \ i -> if predicate i
@@ -484,20 +484,20 @@ Parse a stream of values, reducing it to a final result.
 >>> :{
   let
     parser = Data.Attoparsec.Text.decimal <* Data.Attoparsec.Text.char ','
-    in list & reduceTextParsingResults parser & feedList ["12,", "3", ",4,"] & extract
+    in list & onParsedText parser & feedList ["12,", "3", ",4,"] & extract
 :}
 Right [12,3,4]
 
 >>> :{
   let
     parser = Data.Attoparsec.Text.decimal <* Data.Attoparsec.Text.char ','
-    in list & reduceTextParsingResults parser & extract
+    in list & onParsedText parser & extract
 :}
 Right []
 -}
-{-# INLINABLE reduceTextParsingResults #-}
-reduceTextParsingResults :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
-reduceTextParsingResults parser = let
+{-# INLINABLE onParsedText #-}
+onParsedText :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
+onParsedText parser = let
   handleResult = \ case
     Atto.Partial cont -> \ case
       Ongoing terminate consume ->
@@ -517,9 +517,9 @@ reduceTextParsingResults parser = let
 {-|
 Parse a stream of values, reducing it to a final result.
 -}
-{-# INLINABLE reduceByteStringParsingResults #-}
-reduceByteStringParsingResults :: AttoByteString.Parser a -> Reduction a b -> Reduction ByteString (Either String b)
-reduceByteStringParsingResults parser = let
+{-# INLINABLE onParsedByteString #-}
+onParsedByteString :: AttoByteString.Parser a -> Reduction a b -> Reduction ByteString (Either String b)
+onParsedByteString parser = let
   handleResult = \ case
     Atto.Partial cont -> \ case
       Ongoing terminate consume ->
@@ -727,8 +727,8 @@ which provides instances, implementing parallel composition.
 >>> :{
   extract $ feedList [1,2,3,4] $ unpar $
     (,) <$>
-      par (reduceTaken 2 list) <*>
-      par (reduceTaken 3 list)
+      par (onTaken 2 list) <*>
+      par (onTaken 3 list)
 :}
 ([1,2],[1,2,3])
 -}
@@ -776,12 +776,12 @@ par = ParReduction
 Zero-cost wrapper over `Reduction`,
 which provides instances, implementing sequential composition.
 
->>> ((,) <$> seq (reduceTaken 2 list) <*> seq list) & unseq & feedList [1,2,3,4] & extract
+>>> ((,) <$> seq (onTaken 2 list) <*> seq list) & unseq & feedList [1,2,3,4] & extract
 ([1,2],[3,4])
 
 >>> :{
   extract $ feedList [1,2,3,4] $ unseq $ do
-    a <- seq $ reduceTaken 2 $ sum
+    a <- seq $ onTaken 2 $ sum
     b <- seq $ product
     return (a, b)
 :}

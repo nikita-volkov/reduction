@@ -18,7 +18,7 @@ main = defaultMain
           bench "Reduction" $ nf (reduceList Reduction.sum) input
           ,
           bench "Reduction with early termination" $ let
-            reduction = Reduction.reduceTaken 99999 Reduction.sum
+            reduction = Reduction.onTaken 99999 Reduction.sum
             in nf (reduceList reduction) input
           ,
           bench "Foldl" $ nf (Foldl.fold Foldl.sum) input
