@@ -207,7 +207,6 @@ head = Ongoing Nothing (Terminated . Just)
 {-|
 Reduction, collecting all visited elements into a list.
 It's slower than `reverseList`.
-
 -}
 {-# INLINABLE list #-}
 list :: Reduction a [a]
