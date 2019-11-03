@@ -19,10 +19,10 @@ module Reduction
   reverseStrictList,
   vector,
   hashMap,
-  decodeUtf8,
+  utf8Decoder,
   -- *** Attoparsec integration
-  parseText,
-  parseByteString,
+  textParser,
+  byteStringParser,
   -- ** Transformation
   onTaken,
   onDropped,
@@ -393,15 +393,15 @@ hashMap = foldl (\ m (k, v) -> HashMap.insert k v m) HashMap.empty
 Decode bytestring chunks using UTF-8,
 producing Nothing in case of errors or unfinished input.
 
->>> decodeUtf8 & feedList ["\208", "\144\208", "\145\208", "\146"] & extract
+>>> utf8Decoder & feedList ["\208", "\144\208", "\145\208", "\146"] & extract
 Just "\1040\1041\1042"
 
->>> decodeUtf8 & feedList ["\208", "\144\208", "\145\208"] & extract
+>>> utf8Decoder & feedList ["\208", "\144\208", "\145\208"] & extract
 Nothing
 -}
-{-# INLINABLE decodeUtf8 #-}
-decodeUtf8 :: Reduction ByteString (Maybe Text)
-decodeUtf8 = onUtf8DecodedText (dimap TextBuilder.text TextBuilder.run concat)
+{-# INLINABLE utf8Decoder #-}
+utf8Decoder :: Reduction ByteString (Maybe Text)
+utf8Decoder = onUtf8DecodedText (dimap TextBuilder.text TextBuilder.run concat)
 
 -- *** Attoparsec
 -------------------------
@@ -409,12 +409,12 @@ decodeUtf8 = onUtf8DecodedText (dimap TextBuilder.text TextBuilder.run concat)
 {-|
 Convert an Attoparsec text parser into a reduction over text chunks.
 
->>> Data.Attoparsec.Text.decimal & parseText & feed "123" & feed "45" & extract
+>>> Data.Attoparsec.Text.decimal & textParser & feed "123" & feed "45" & extract
 Right 12345
 -}
-{-# INLINABLE parseText #-}
-parseText :: AttoText.Parser o -> Reduction Text (Either Text o)
-parseText parser =
+{-# INLINABLE textParser #-}
+textParser :: AttoText.Parser o -> Reduction Text (Either Text o)
+textParser parser =
   Ongoing
     (extract (parserResult (AttoText.parse parser "")))
     (parserResult . AttoText.parse parser)
@@ -422,9 +422,9 @@ parseText parser =
 {-|
 Convert an Attoparsec bytestring parser into a reduction over bytestring chunks.
 -}
-{-# INLINABLE parseByteString #-}
-parseByteString :: AttoByteString.Parser o -> Reduction ByteString (Either Text o)
-parseByteString parser =
+{-# INLINABLE byteStringParser #-}
+byteStringParser :: AttoByteString.Parser o -> Reduction ByteString (Either Text o)
+byteStringParser parser =
   Ongoing
     (extract (parserResult (AttoByteString.parse parser "")))
     (parserResult . AttoByteString.parse parser)
