@@ -66,7 +66,7 @@ main = defaultMain
       in [
           bench "Reduction" $ let
             find :: (a -> Bool) -> [a] -> Maybe a
-            find predicate input = R.head & R.filtering predicate & R.feedList input & R.extract
+            find predicate input = R.head & R.filtering predicate & R.feedingList input & R.extract
             in nf (find (> 99999)) input
           ,
           bench "List" $ nf (find (> 99999)) input
@@ -74,4 +74,4 @@ main = defaultMain
   ]
 
 reduceList :: Reduction a b -> [a] -> b
-reduceList reduction list = R.extract (R.feedList list reduction)
+reduceList reduction list = R.extract (R.feedingList list reduction)

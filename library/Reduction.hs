@@ -45,15 +45,15 @@ module Reduction
   -- 
   -- Notice that you can feed multiple times and from different datastructures:
   -- 
-  -- >>> list & feedList [1,2] & feed 3 & feedVector (Data.Vector.fromList [4,5]) & extract
+  -- >>> list & feedingList [1,2] & feeding 3 & feedingVector (Data.Vector.fromList [4,5]) & extract
   -- [1,2,3,4,5]
-  feed,
-  feedList,
-  feedStrictList,
-  feedVector,
-  feedByteString,
-  feedText,
-  feedFoldable,
+  feeding,
+  feedingList,
+  feedingStrictList,
+  feedingVector,
+  feedingByteString,
+  feedingText,
+  feedingFoldable,
   -- * Recipies
   -- ** List API simulation
   {-|
@@ -63,7 +63,7 @@ module Reduction
   >>> :{
     let
       find :: (a -> Bool) -> [a] -> Maybe a
-      find predicate input = head & filtering predicate & feedList input & extract
+      find predicate input = head & filtering predicate & feedingList input & extract
       in find (> 3) [1,2,3,4,5,6]
   :}
   Just 4
@@ -82,7 +82,7 @@ module Reduction
     let
       avg :: Reduction Double Double
       avg = sum / count
-      in avg & feedList [3,2,3,2] & extract
+      in avg & feedingList [3,2,3,2] & extract
   :}
   2.5
   -}
@@ -140,7 +140,7 @@ deriving instance Functor (Reduction input)
 Feeds all reductions, combining their results.
 
 >>> :{
-  extract $ feedList [1,2,3,4] $ 
+  extract $ feedingList [1,2,3,4] $ 
   (,) <$> taking 2 list <*> taking 3 list
 :}
 ([1,2],[1,2,3])
@@ -200,7 +200,7 @@ instance Comonad.Comonad (Reduction input) where
 {-|
 Allows to map over the input using `lmap`:
 
->>> list & lmap (+ 1) & feedList [1,2,3] & extract
+>>> list & lmap (+ 1) & feedingList [1,2,3] & extract
 [2,3,4]
 -}
 instance Profunctor Reduction where
@@ -264,10 +264,10 @@ instance Floating b => Floating (Reduction a b) where
 {-|
 Extract the current result of reduction. Same as @Control.Comonad.`Comonad.extract`@.
 
-Use this function in combination with ones of the @feed*@ family to reduce datastructures.
+Use this function in combination with ones of the @feeding*@ family to reduce datastructures.
 E.g.,
 
->>> sum & feedList [1,2,3] & extract
+>>> sum & feedingList [1,2,3] & extract
 6
 -}
 {-# INLINABLE extract #-}
@@ -375,7 +375,7 @@ reverseStrictList = foldl (flip Cons) Nil
 {-|
 Reduction, collecting all visited elements into a generic vector.
 
->>> vector & feedList [1,2,3] & extract :: Data.Vector.Primitive.Vector Int
+>>> vector & feedingList [1,2,3] & extract :: Data.Vector.Primitive.Vector Int
 [1,2,3]
 -}
 {-# INLINABLE vector #-}
@@ -393,10 +393,10 @@ hashMap = foldl (\ m (k, v) -> HashMap.insert k v m) HashMap.empty
 Decode bytestring chunks using UTF-8,
 producing Nothing in case of errors or unfinished input.
 
->>> decodeUtf8 & feedList ["\208", "\144\208", "\145\208", "\146"] & extract
+>>> decodeUtf8 & feedingList ["\208", "\144\208", "\145\208", "\146"] & extract
 Just "\1040\1041\1042"
 
->>> decodeUtf8 & feedList ["\208", "\144\208", "\145\208"] & extract
+>>> decodeUtf8 & feedingList ["\208", "\144\208", "\145\208"] & extract
 Nothing
 -}
 {-# INLINABLE decodeUtf8 #-}
@@ -409,7 +409,7 @@ decodeUtf8 = decodingUtf8 (dimap TextBuilder.text TextBuilder.run concat)
 {-|
 Convert an Attoparsec text parser into a reduction over text chunks.
 
->>> Data.Attoparsec.Text.decimal & parseText & feed "123" & feed "45" & extract
+>>> Data.Attoparsec.Text.decimal & parseText & feeding "123" & feeding "45" & extract
 Right 12345
 -}
 {-# INLINABLE parseText #-}
@@ -460,7 +460,7 @@ mapOngoing fn = \ case
 Limit a reduction to consume only the specified amount of elements at max,
 terminating early.
 
->>> list & taking 2 & feedList [1,2,3,4] & extract
+>>> list & taking 2 & feedingList [1,2,3,4] & extract
 [1,2]
 -}
 {-# INLINABLE taking #-}
@@ -472,7 +472,7 @@ taking amount = if amount > 0
 {-|
 Make reduction ignore the first elements.
 
->>> list & dropping 2 & feedList [1,2,3,4] & extract
+>>> list & dropping 2 & feedingList [1,2,3,4] & extract
 [3,4]
 -}
 {-# INLINABLE dropping #-}
@@ -484,7 +484,7 @@ dropping amount = if amount > 0
   else id
 
 {-|
->>> list & takingWhile (< 3) & feedList [1,2,3,4] & extract
+>>> list & takingWhile (< 3) & feedingList [1,2,3,4] & extract
 [1,2]
 -}
 {-# INLINABLE takingWhile #-}
@@ -499,7 +499,7 @@ takingWhile predicate = let
   in loop
 
 {-|
->>> list & droppingWhile (< 3) & feedList [1,2,3,4] & extract
+>>> list & droppingWhile (< 3) & feedingList [1,2,3,4] & extract
 [3,4]
 -}
 {-# INLINABLE droppingWhile #-}
@@ -516,7 +516,7 @@ droppingWhile predicate = let
 {-|
 Generalization of `Data.List.partition`.
 
->>> partitioning odd list list & feedList [1,2,3,4] & extract
+>>> partitioning odd list list & feedingList [1,2,3,4] & extract
 ([1,3],[2,4])
 -}
 {-# INLINABLE partitioning #-}
@@ -528,7 +528,7 @@ partitioning predicate reduction1 reduction2 =
 {-|
 Combines two reductions into one processing inputs for either of them.
 
->>> choosing list list & feedList [Left 1, Right 2, Left 3, Right 4] & extract
+>>> choosing list list & feedingList [Left 1, Right 2, Left 3, Right 4] & extract
 ([1,3],[2,4])
 -}
 {-# INLINABLE choosing #-}
@@ -563,20 +563,20 @@ choosing = \ case
 Lift a reduction on each byte into a reduction on bytestring chunks.
 -}
 unpackingByteString :: Reduction Word8 a -> Reduction ByteString a
-unpackingByteString = feedAndReduce feedByteString
+unpackingByteString = feedingUsing feedingByteString
 
 {-|
 Lift a reduction on each char into a reduction on text chunks.
 
->>> list & unpackingText & feedList ["ab", "c", "def"] & extract
+>>> list & unpackingText & feedingList ["ab", "c", "def"] & extract
 "abcdef"
 -}
 unpackingText :: Reduction Char a -> Reduction Text a
-unpackingText = feedAndReduce feedText
+unpackingText = feedingUsing feedingText
 
-feedAndReduce :: (i2 -> Reduction i1 o -> Reduction i1 o) -> Reduction i1 o -> Reduction i2 o
-feedAndReduce feed = let
-  loop reduction = Ongoing (extract reduction) (\ chunk -> loop (feed chunk reduction))
+feedingUsing :: (i2 -> Reduction i1 o -> Reduction i1 o) -> Reduction i1 o -> Reduction i2 o
+feedingUsing feeding = let
+  loop reduction = Ongoing (extract reduction) (\ chunk -> loop (feeding chunk reduction))
   in loop
 
 {-|
@@ -628,7 +628,7 @@ onTextDecodingStep step = \ case
 {-|
 Focus a reduction on unique inputs.
 
->>> list & deduplicating & feedList [1,2,1,3] & extract
+>>> list & deduplicating & feedingList [1,2,1,3] & extract
 [1,2,3]
 -}
 {-# INLINABLE deduplicating #-}
@@ -650,7 +650,7 @@ deduplicating = let
 {-|
 Focus a reduction on filtered inputs.
 
->>> list & filtering odd & feedList [1,2,3,4,5] & extract
+>>> list & filtering odd & feedingList [1,2,3,4,5] & extract
 [1,3,5]
 -}
 {-# INLINABLE filtering #-}
@@ -673,7 +673,7 @@ Parse a stream of values, reducing it to a final result.
 >>> :{
   let
     parser = Data.Attoparsec.Text.decimal <* Data.Attoparsec.Text.char ','
-    in list & parsingText parser & feedList ["12,", "3", ",4,"] & extract
+    in list & parsingText parser & feedingList ["12,", "3", ",4,"] & extract
 :}
 Right [12,3,4]
 
@@ -731,57 +731,57 @@ parsingByteString parser = let
 {-|
 Update reduction by feeding one input to it.
 -}
-{-# INLINABLE feed #-}
-feed :: a -> Reduction a output -> Reduction a output
-feed input = \ case
+{-# INLINABLE feeding #-}
+feeding :: a -> Reduction a output -> Reduction a output
+feeding input = \ case
   Ongoing _ consume -> consume input
   terminated -> terminated
 
 {-|
 Update reduction by feeding a list of inputs to it.
 -}
-{-# INLINABLE feedList #-}
-feedList :: [a] -> Reduction a output -> Reduction a output
-feedList = \ case
+{-# INLINABLE feedingList #-}
+feedingList :: [a] -> Reduction a output -> Reduction a output
+feedingList = \ case
   input : remainingList -> \ case
-    Ongoing _ consume -> consume input & feedList remainingList
+    Ongoing _ consume -> consume input & feedingList remainingList
     terminated -> terminated
   _ -> id
 
 {-|
 Update reduction by feeding a strict list of inputs to it.
 -}
-{-# INLINABLE feedStrictList #-}
-feedStrictList :: List a -> Reduction a output -> Reduction a output
-feedStrictList = \ case
+{-# INLINABLE feedingStrictList #-}
+feedingStrictList :: List a -> Reduction a output -> Reduction a output
+feedingStrictList = \ case
   Cons input remainingList -> \ case
-    Ongoing _ consume -> consume input & feedStrictList remainingList
+    Ongoing _ consume -> consume input & feedingStrictList remainingList
     terminated -> terminated
   _ -> id
 
 {-|
 Update reduction by feeding a vector of inputs to it.
 -}
-{-# INLINABLE feedVector #-}
-feedVector :: Vector vec input => vec input -> Reduction input output -> Reduction input output
-feedVector = feedIndexable Vec.length Vec.unsafeIndex
+{-# INLINABLE feedingVector #-}
+feedingVector :: Vector vec input => vec input -> Reduction input output -> Reduction input output
+feedingVector = feedingIndexable Vec.length Vec.unsafeIndex
 
 {-|
 Update reduction by feeding each byte of a bytestring to it.
 -}
-{-# INLINABLE feedByteString #-}
-feedByteString :: ByteString -> Reduction Word8 output -> Reduction Word8 output
-feedByteString = feedIndexable ByteString.length ByteString.unsafeIndex
+{-# INLINABLE feedingByteString #-}
+feedingByteString :: ByteString -> Reduction Word8 output -> Reduction Word8 output
+feedingByteString = feedingIndexable ByteString.length ByteString.unsafeIndex
 
 {-|
 Update reduction by feeding each character of a text to it.
 
->>> list & feedText "АБВГ" & extract
+>>> list & feedingText "АБВГ" & extract
 "\1040\1041\1042\1043"
 -}
-{-# INLINABLE feedText #-}
-feedText :: Text -> Reduction Char output -> Reduction Char output
-feedText text = let
+{-# INLINABLE feedingText #-}
+feedingText :: Text -> Reduction Char output -> Reduction Char output
+feedingText text = let
   length = Text.lengthWord16 text
   iterate index = \ case
     Ongoing terminate consume -> if index < length
@@ -795,9 +795,9 @@ feedText text = let
 {-|
 Update reduction by feeding a vector of inputs to it.
 -}
-{-# INLINE feedIndexable #-}
-feedIndexable :: (indexable -> Int) -> (indexable -> Int -> input) -> indexable -> Reduction input output -> Reduction input output
-feedIndexable getLength getElement indexable = let
+{-# INLINE feedingIndexable #-}
+feedingIndexable :: (indexable -> Int) -> (indexable -> Int -> input) -> indexable -> Reduction input output -> Reduction input output
+feedingIndexable getLength getElement indexable = let
   length = getLength indexable
   iterate index = \ case
     Ongoing terminate consume -> if index < length
@@ -809,9 +809,9 @@ feedIndexable getLength getElement indexable = let
 {-|
 Update reduction by feeding a foldable of inputs to it.
 -}
-{-# INLINABLE feedFoldable #-}
-feedFoldable :: Foldable f => f input -> Reduction input output -> Reduction input output
-feedFoldable foldable reduction =
+{-# INLINABLE feedingFoldable #-}
+feedingFoldable :: Foldable f => f input -> Reduction input output -> Reduction input output
+feedingFoldable foldable reduction =
   foldr
     (\ input updateReduction reduction -> case reduction of
       Ongoing _ consume -> updateReduction (consume input)
