@@ -23,7 +23,7 @@ library
     Reduction
   other-modules:
     Reduction.Prelude
-    Reduction.String
+    Reduction.Text
     Reduction.Vector
     Reduction.Vector.Mutable
   build-depends:

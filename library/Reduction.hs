@@ -61,7 +61,7 @@ import qualified Control.Comonad as Comonad
 import qualified Data.Attoparsec.Types as Atto
 import qualified Data.Attoparsec.Text as AttoText
 import qualified Data.Attoparsec.ByteString as AttoByteString
-import qualified Reduction.String as String
+import qualified Reduction.Text as Text
 import qualified Reduction.Vector as Vector
 import qualified Data.Text as Text
 import qualified Data.Text.Unsafe as Text
@@ -316,7 +316,7 @@ Convert an Attoparsec text parser into a reduction over text chunks.
 Right 12345
 -}
 {-# INLINABLE parseText #-}
-parseText :: AttoText.Parser o -> Reduction Text (Either String o)
+parseText :: AttoText.Parser o -> Reduction Text (Either Text o)
 parseText parser =
   Ongoing
     (extract (parserResult (AttoText.parse parser "")))
@@ -326,23 +326,23 @@ parseText parser =
 Convert an Attoparsec bytestring parser into a reduction over bytestring chunks.
 -}
 {-# INLINABLE parseByteString #-}
-parseByteString :: AttoByteString.Parser o -> Reduction ByteString (Either String o)
+parseByteString :: AttoByteString.Parser o -> Reduction ByteString (Either Text o)
 parseByteString parser =
   Ongoing
     (extract (parserResult (AttoByteString.parse parser "")))
     (parserResult . AttoByteString.parse parser)
 
 {-# INLINABLE parserResult #-}
-parserResult :: Monoid i => Atto.IResult i o -> Reduction i (Either String o)
+parserResult :: Monoid i => Atto.IResult i o -> Reduction i (Either Text o)
 parserResult = let
   terminateCont cont = case cont mempty of
     Atto.Done _ o -> Right o
-    Atto.Fail _ context details -> Left (String.attoFailure context details)
+    Atto.Fail _ context details -> Left (Text.attoFailure context details)
     _ -> Left "Result: incomplete input"
   in \ case
     Atto.Partial cont -> Ongoing (terminateCont cont) (parserResult . cont)
     Atto.Done _ o -> Terminated (Right o)
-    Atto.Fail _ context details -> Terminated (Left (String.attoFailure context details))
+    Atto.Fail _ context details -> Terminated (Left (Text.attoFailure context details))
 
 -- ** Transformation
 -------------------------
@@ -542,7 +542,7 @@ Right [12,3,4]
 Right []
 -}
 {-# INLINABLE onParsedText #-}
-onParsedText :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
+onParsedText :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either Text b)
 onParsedText parser = let
   handleResult = \ case
     Atto.Partial cont -> \ case
@@ -557,14 +557,14 @@ onParsedText parser = let
           (AttoText.parse parser remainderInput)
           (consume value)
       Terminated output -> Terminated (Right output)
-    Atto.Fail _ context details -> const (Terminated (Left (String.attoFailure context details)))
+    Atto.Fail _ context details -> const (Terminated (Left (Text.attoFailure context details)))
   in handleResult (AttoText.parse parser "")
 
 {-|
 Parse a stream of values, reducing it to a final result.
 -}
 {-# INLINABLE onParsedByteString #-}
-onParsedByteString :: AttoByteString.Parser a -> Reduction a b -> Reduction ByteString (Either String b)
+onParsedByteString :: AttoByteString.Parser a -> Reduction a b -> Reduction ByteString (Either Text b)
 onParsedByteString parser = let
   handleResult = \ case
     Atto.Partial cont -> \ case
@@ -579,7 +579,7 @@ onParsedByteString parser = let
           (AttoByteString.parse parser remainderInput)
           (consume value)
       Terminated output -> Terminated (Right output)
-    Atto.Fail _ context details -> const (Terminated (Left (String.attoFailure context details)))
+    Atto.Fail _ context details -> const (Terminated (Left (Text.attoFailure context details)))
   in handleResult (AttoByteString.parse parser "")
 
 -- *** Feeding
