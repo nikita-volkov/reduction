@@ -14,6 +14,7 @@ module Reduction
   head,
   list,
   reverseList,
+  vector,
   -- *** Attoparsec integration
   parseText,
   parseByteString,
@@ -65,6 +66,7 @@ import qualified Data.Attoparsec.Types as Atto
 import qualified Data.Attoparsec.Text as AttoText
 import qualified Data.Attoparsec.ByteString as AttoByteString
 import qualified Reduction.String as String
+import qualified Reduction.Vector as Vector
 import qualified Data.Text as Text
 import qualified Data.Text.Unsafe as Text
 import qualified Data.ByteString as ByteString
@@ -218,6 +220,16 @@ It's faster than `list`.
 {-# INLINABLE reverseList #-}
 reverseList :: Reduction a [a]
 reverseList = foldl (flip (:)) []
+
+{-|
+Reduction, collecting all visited elements into a generic vector.
+
+>>> vector & feedList [1,2,3] & extract :: Data.Vector.Primitive.Vector Int
+[1,2,3]
+-}
+{-# INLINABLE vector #-}
+vector :: Vector vec a => Reduction a (vec a)
+vector = unpar $ Vector.fromReverseListN <$> par count <*> par reverseList
 
 -- *** Attoparsec
 -------------------------

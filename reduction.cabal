@@ -24,6 +24,8 @@ library
   other-modules:
     Reduction.Prelude
     Reduction.String
+    Reduction.Vector
+    Reduction.Vector.Mutable
   build-depends:
     attoparsec >=0.13 && <0.14,
     base >=4.9 && <5,
