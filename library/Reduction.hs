@@ -26,6 +26,7 @@ module Reduction
   reduceDropped,
   reduceTakenWhile,
   reduceDroppedWhile,
+  reducePartitioned,
   reduceEither,
   reduceByteStringBytes,
   reduceTextChars,
@@ -368,6 +369,18 @@ reduceDroppedWhile predicate = let
         else consume input
     Terminated output -> Terminated output
   in loop
+
+{-|
+Generalization of `Data.List.partition`.
+
+>>> reducePartitioned odd list list & feedList [1,2,3,4] & extract
+([1,3],[2,4])
+-}
+{-# INLINABLE reducePartitioned #-}
+reducePartitioned :: (a -> Bool) -> Reduction a b -> Reduction a c -> Reduction a (b, c)
+reducePartitioned predicate reduction1 reduction2 =
+  lmap (\ i -> if predicate i then Left i else Right i) $
+  reduceEither reduction1 reduction2
 
 {-|
 Combines two reductions into one processing inputs for either of them.
