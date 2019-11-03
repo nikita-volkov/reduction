@@ -51,15 +51,6 @@ module Reduction
   feedByteString,
   feedText,
   feedFoldable,
-  -- ** Compositional conversion
-  unpar,
-  unseq,
-  -- * Parallel reduction
-  ParReduction,
-  par,
-  -- * Sequential reduction
-  SeqReduction,
-  seq,
 )
 where
 
@@ -92,7 +83,6 @@ with the following features:
 - Early termination. Stops consuming input as soon as it stops needing it.
 - Being itself a state value allows it to be fed with data incrementally or serve as context in the `State` monad.
 - Parallel composition. Multiple reductions can be composed into one distributing the inputs between them.
-- Sequential composition. Multiple reductions can be composed into one executing one after the other based on their early termination.
 -}
 data Reduction input output =
   {-|
@@ -107,6 +97,61 @@ data Reduction input output =
   Terminated !output
 
 deriving instance Functor (Reduction input)
+
+{-|
+Feeds all reductions, combining their results.
+
+>>> :{
+  extract $ feedList [1,2,3,4] $ 
+  (,) <$> onTaken 2 list <*> onTaken 3 list
+:}
+([1,2],[1,2,3])
+-}
+instance Applicative (Reduction input) where
+  pure = Terminated
+  (<*>) = \ case
+    Ongoing terminate1 consume1 -> \ case
+      Ongoing terminate2 consume2 -> let
+        terminate = terminate1 terminate2
+        consume input = let
+          nextReduction1 = consume1 input
+          nextReduction2 = consume2 input
+          in nextReduction1 <*> nextReduction2
+        in Ongoing terminate consume
+      Terminated output2 -> let
+        terminate = terminate1 output2
+        consume = fmap (\ output1 -> output1 output2) . consume1
+        in Ongoing terminate consume
+    Terminated output1 -> fmap output1
+
+{-|
+Feeds all reductions, terminating early if possible.
+-}
+instance Selective (Reduction input) where
+  select = \ case
+    Ongoing terminate1 consume1 -> \ case
+      Ongoing terminate2 consume2 ->
+        Ongoing
+          (Prelude.either terminate2 id terminate1)
+          (\ input -> select (consume1 input) (consume2 input))
+      Terminated output2 ->
+        Ongoing
+          (Prelude.either output2 id terminate1)
+          (fmap (Prelude.either output2 id) . consume1)
+    Terminated output1 -> case output1 of
+      Left output1 -> fmap ($ output1)
+      Right output -> const (Terminated output)
+
+{-|
+Feeds all reductions, getting the result of the one that terminates first.
+-}
+instance Alt (Reduction input) where
+  (<!>) = \ case
+    Ongoing terminate1 consume1 -> \ case
+      Ongoing terminate2 consume2 ->
+        Ongoing terminate1 (\ i -> consume1 i <!> consume2 i)
+      Terminated output2 -> Terminated output2
+    Terminated output1 -> const (Terminated output1)
 
 instance Comonad.Comonad (Reduction input) where
   extract = extract
@@ -259,7 +304,7 @@ Reduction, collecting all visited elements into a generic vector.
 -}
 {-# INLINABLE vector #-}
 vector :: Vector vec a => Reduction a (vec a)
-vector = unpar $ Vector.fromReverseStrictListN <$> par count <*> par reverseStrictList
+vector = liftA2 Vector.fromReverseStrictListN count reverseStrictList
 
 -- *** Attoparsec
 -------------------------
@@ -632,187 +677,3 @@ feedFoldable foldable reduction =
     id
     foldable
     reduction
-
--- *** Composition
--------------------------
-
-{-# INLINABLE apPar #-}
-apPar :: Reduction input (a -> b) -> Reduction input a -> Reduction input b
-apPar = \ case
-  Ongoing terminate1 consume1 -> \ case
-    Ongoing terminate2 consume2 -> let
-      terminate = terminate1 terminate2
-      consume input = let
-        nextReduction1 = consume1 input
-        nextReduction2 = consume2 input
-        in apPar nextReduction1 nextReduction2
-      in Ongoing terminate consume
-    Terminated output2 -> let
-      terminate = terminate1 output2
-      consume = fmap (\ output1 -> output1 output2) . consume1
-      in Ongoing terminate consume
-  Terminated output1 -> fmap output1
-
-{-# INLINABLE selectPar #-}
-selectPar :: Reduction input (Either a b) -> Reduction input (a -> b) -> Reduction input b
-selectPar = \ case
-  Ongoing terminate1 consume1 -> \ case
-    Ongoing terminate2 consume2 ->
-      Ongoing
-        (Prelude.either terminate2 id terminate1)
-        (\ input -> selectPar (consume1 input) (consume2 input))
-    Terminated output2 ->
-      Ongoing
-        (Prelude.either output2 id terminate1)
-        (fmap (Prelude.either output2 id) . consume1)
-  Terminated output1 -> case output1 of
-    Left output1 -> fmap ($ output1)
-    Right output -> const (Terminated output)
-
-{-# INLINABLE altPar #-}
-altPar :: Reduction input a -> Reduction input a -> Reduction input a
-altPar = \ case
-  Ongoing terminate1 consume1 -> \ case
-    Ongoing terminate2 consume2 ->
-      Ongoing terminate1 (\ i -> altPar (consume1 i) (consume2 i))
-    Terminated output2 -> Terminated output2
-  Terminated output1 -> const (Terminated output1)
-
-{-# INLINABLE apSeq #-}
-apSeq :: Reduction input (a -> b) -> Reduction input a -> Reduction input b
-apSeq = \ case
-  Ongoing terminate1 consume1 -> \ reduction2 ->
-    Ongoing
-      (terminate1 (extract reduction2))
-      (\ input -> apSeq (consume1 input) reduction2)
-  Terminated output1 -> fmap output1
-
-{-# INLINABLE bindSeq #-}
-bindSeq :: (a -> Reduction input b) -> Reduction input a -> Reduction input b
-bindSeq getReduction2 = 
-  let
-    compose = \ case
-      Ongoing terminate1 consume1 ->
-        let
-          terminate = extract (getReduction2 terminate1)
-          consume input = compose (consume1 input)
-          in Ongoing terminate consume
-      Terminated output1 -> getReduction2 output1
-    in compose
-
--- ** Compositional conversion
--------------------------
-
-{-|
-Normalize parallel reduction.
--}
-{-# INLINABLE unpar #-}
-unpar :: ParReduction input output -> Reduction input output
-unpar (ParReduction reduction) = reduction
-
-{-|
-Normalize sequential reduction.
--}
-{-# INLINABLE unseq #-}
-unseq :: SeqReduction input output -> Reduction input output
-unseq (SeqReduction reduction) = reduction
-
-
--- * Parallel
--------------------------
-
-{-|
-Zero-cost wrapper over `Reduction`,
-which provides instances, implementing parallel composition.
-
->>> :{
-  extract $ feedList [1,2,3,4] $ unpar $
-    (,) <$>
-      par (onTaken 2 list) <*>
-      par (onTaken 3 list)
-:}
-([1,2],[1,2,3])
--}
-newtype ParReduction input output = ParReduction (Reduction input output)
-
-deriving instance Functor (ParReduction input)
-
-deriving instance Profunctor ParReduction
-
-deriving instance Choice ParReduction
-
-{-|
-Feeds all reductions, combining their results.
--}
-instance Applicative (ParReduction input) where
-  pure a = ParReduction (Terminated a)
-  (<*>) = parBinOp apPar
-
-{-|
-Feeds all reductions, terminating early if possible.
--}
-instance Selective (ParReduction input) where
-  select = parBinOp selectPar
-
-{-|
-Feeds all reductions, getting the result of the one that terminates first.
--}
-instance Alt (ParReduction input) where
-  (<!>) = parBinOp altPar
-
-parBinOp op (ParReduction red1) (ParReduction red2) = ParReduction (op red1 red2)
-
-{-|
-Parallelize normal reduction.
--}
-{-# INLINABLE par #-}
-par :: Reduction input output -> ParReduction input output
-par = ParReduction
-
-
--- * Sequential
--------------------------
-
-{-|
-Zero-cost wrapper over `Reduction`,
-which provides instances, implementing sequential composition.
-
->>> ((,) <$> seq (onTaken 2 list) <*> seq list) & unseq & feedList [1,2,3,4] & extract
-([1,2],[3,4])
-
->>> :{
-  extract $ feedList [1,2,3,4] $ unseq $ do
-    a <- seq $ onTaken 2 $ sum
-    b <- seq $ product
-    return (a, b)
-:}
-(3,12)
--}
-newtype SeqReduction input output = SeqReduction (Reduction input output)
-
-deriving instance Functor (SeqReduction input)
-
-deriving instance Profunctor SeqReduction
-
-deriving instance Choice SeqReduction
-
-instance Applicative (SeqReduction input) where
-  pure a = SeqReduction (Terminated a)
-  (<*>) = seqBinOp apSeq
-
-instance Selective (SeqReduction input) where
-  select = selectM
-
-instance Monad (SeqReduction input) where
-  return = pure
-  (>>=) (SeqReduction reduction1) getSeqReduction2 =
-    SeqReduction (bindSeq (unseq . getSeqReduction2) reduction1)
-
-seqBinOp op (SeqReduction red1) (SeqReduction red2) = SeqReduction (op red1 red2)
-
-{-|
-Sequentialize normal reduction.
--}
-{-# INLINABLE seq #-}
-seq :: Reduction input output -> SeqReduction input output
-seq = SeqReduction

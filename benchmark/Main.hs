@@ -41,9 +41,7 @@ main = defaultMain
       in [
           bench "Reduction" $ let
             reduction :: Reduction Int (Int, Int)
-            reduction =
-              Reduction.unpar $
-              liftA2 (,) (Reduction.par Reduction.sum) (Reduction.par Reduction.count)
+            reduction = liftA2 (,) Reduction.sum Reduction.count
             in nf (reduceList reduction) input
           ,
           bench "Foldl" $ let
