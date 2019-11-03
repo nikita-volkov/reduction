@@ -7,6 +7,7 @@ import Reduction (Reduction)
 import Control.Foldl (Fold)
 import qualified Reduction
 import qualified Control.Foldl as Foldl
+import qualified Data.Vector
 
 
 main = defaultMain
@@ -25,6 +26,14 @@ main = defaultMain
           bench "foldl' (+) 0" $ nf (foldl' (+) 0) input
           ,
           bench "sum" $ nf sum input
+        ]
+    ,
+    bgroup "vector" $ let
+      input = [0..999999] :: [Int]
+      in [
+          bench "Reduction" $ nf (reduceList (Reduction.vector :: Reduction Int (Data.Vector.Vector Int))) input
+          ,
+          bench "Foldl" $ nf (Foldl.fold (Foldl.vector :: Fold Int (Data.Vector.Vector Int))) input
         ]
     ,
     bgroup "Parallel composition" $ let
