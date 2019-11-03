@@ -22,7 +22,7 @@ module Reduction
   drop,
   takeWhile,
   dropWhile,
-  either,
+  reduceEither,
   reduceByteStringBytes,
   reduceTextChars,
   reduceUnique,
@@ -332,34 +332,34 @@ dropWhile predicate = let
 {-|
 Combines two reductions into one processing inputs for either of them.
 
->>> either list list & feedList [Left 1, Right 2, Left 3, Right 4] & extract
+>>> reduceEither list list & feedList [Left 1, Right 2, Left 3, Right 4] & extract
 ([1,3],[2,4])
 -}
-{-# INLINABLE either #-}
-either :: Reduction a1 b1 -> Reduction a2 b2 -> Reduction (Either a1 a2) (b1, b2)
-either = \ case
+{-# INLINABLE reduceEither #-}
+reduceEither :: Reduction a1 b1 -> Reduction a2 b2 -> Reduction (Either a1 a2) (b1, b2)
+reduceEither = \ case
   Ongoing terminate1 consume1 -> \ case
     Ongoing terminate2 consume2 ->
       Ongoing
         (terminate1, terminate2)
         (\ case
-          Left a1 -> either (consume1 a1) (Ongoing terminate2 consume2)
-          Right a2 -> either (Ongoing terminate1 consume1) (consume2 a2)
+          Left a1 -> reduceEither (consume1 a1) (Ongoing terminate2 consume2)
+          Right a2 -> reduceEither (Ongoing terminate1 consume1) (consume2 a2)
         )
     Terminated output2 ->
       Ongoing
         (terminate1, output2)
         (\ case
-          Left a1 -> either (consume1 a1) (Terminated output2)
-          Right a2 -> either (Ongoing terminate1 consume1) (Terminated output2)
+          Left a1 -> reduceEither (consume1 a1) (Terminated output2)
+          Right a2 -> reduceEither (Ongoing terminate1 consume1) (Terminated output2)
         )
   Terminated output1 -> \ case
     Ongoing terminate2 consume2 ->
       Ongoing
         (output1, terminate2)
         (\ case
-          Right a2 -> either (Terminated output1) (consume2 a2)
-          Left a1 -> either (Terminated output1) (Ongoing terminate2 consume2)
+          Right a2 -> reduceEither (Terminated output1) (consume2 a2)
+          Left a1 -> reduceEither (Terminated output1) (Ongoing terminate2 consume2)
         )
     Terminated output2 -> Terminated (output1, output2)
 
