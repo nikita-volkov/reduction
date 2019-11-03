@@ -56,6 +56,10 @@ main = defaultMain
           ,
           bench "Foldl" $ nf (Foldl.fold Foldl.null) input
         ]
+    ,
+    bench "Text decoding" $ let
+      !input = concat $ replicate 10000 $ ["\208\176\208", "\177\208\178\208\179\208", "\180\208\181\209\145\208\182\208\183", "\208\184\208\185\208\186\208\187\208\188\208\189\208\190\208\191\209", "\128\209\129\209\130\209\136\209\137\209\140\209\138\209\141\209\142\209\143"]
+      in nf (reduceList Reduction.decodeUtf8) input
   ]
 
 reduceList :: Reduction a b -> [a] -> b

@@ -18,6 +18,7 @@ module Reduction
   strictList,
   reverseStrictList,
   vector,
+  decodeUtf8,
   -- *** Attoparsec integration
   parseText,
   parseByteString,
@@ -30,6 +31,7 @@ module Reduction
   onEither,
   onByteStringBytes,
   onTextChars,
+  onUtf8DecodedText,
   onUnique,
   onFiltered,
   -- *** Attoparsec integration
@@ -65,10 +67,13 @@ import qualified Reduction.Text as Text
 import qualified Reduction.Vector as Vector
 import qualified Data.Text as Text
 import qualified Data.Text.Unsafe as Text
+import qualified Data.Text.Encoding as Text
+import qualified Data.Text.Encoding.Error as Text
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Unsafe as ByteString
 import qualified Data.HashMap.Strict as HashMap
 import qualified StrictList
+import qualified Text.Builder as TextBuilder
 
 
 -- * Reduction
@@ -306,6 +311,20 @@ Reduction, collecting all visited elements into a generic vector.
 vector :: Vector vec a => Reduction a (vec a)
 vector = liftA2 Vector.fromReverseStrictListN count reverseStrictList
 
+{-|
+Decode bytestring chunks using UTF-8,
+producing Nothing in case of errors or unfinished input.
+
+>>> decodeUtf8 & feedList ["\208", "\144\208", "\145\208", "\146"] & extract
+Just "\1040\1041\1042"
+
+>>> decodeUtf8 & feedList ["\208", "\144\208", "\145\208"] & extract
+Nothing
+-}
+{-# INLINABLE decodeUtf8 #-}
+decodeUtf8 :: Reduction ByteString (Maybe Text)
+decodeUtf8 = onUtf8DecodedText (dimap TextBuilder.text TextBuilder.run concat)
+
 -- *** Attoparsec
 -------------------------
 
@@ -481,6 +500,52 @@ feedAndReduce :: (i2 -> Reduction i1 o -> Reduction i1 o) -> Reduction i1 o -> R
 feedAndReduce feed = let
   loop reduction = Ongoing (extract reduction) (\ chunk -> loop (feed chunk reduction))
   in loop
+
+{-|
+Lift a reduction of text chunks into a reduction of bytestrings,
+outputting Nothing in case of encoding errors.
+-}
+{-# INLINABLE onUtf8DecodedText #-}
+onUtf8DecodedText :: Reduction Text a -> Reduction ByteString (Maybe a)
+onUtf8DecodedText = onTextDecoding (Text.Some mempty mempty Text.streamDecodeUtf8)
+
+{-# INLINABLE onTextDecoding #-}
+onTextDecoding :: Text.Decoding -> Reduction Text a -> Reduction ByteString (Maybe a)
+onTextDecoding (Text.Some decodedChunk remainder cont) = \ case
+  Ongoing terminate consume ->
+    Ongoing
+      (if ByteString.null remainder
+        then if Text.null decodedChunk
+          then Just terminate
+          else Just (extract (consume decodedChunk))
+        else Nothing
+      )
+      (\ remainder -> unsafeDupablePerformIO (catch
+        (fmap
+          (\ decoding -> onTextDecoding decoding (consume decodedChunk))
+          (evaluate (cont remainder)))
+        (\ case
+          Text.DecodeError _ _ -> return (Terminated Nothing)
+          _ -> error "Unexpected EncodeError"
+        )))
+  Terminated output -> Terminated (Just output)
+
+{-# INLINABLE onTextDecodingStep #-}
+onTextDecodingStep :: (ByteString -> Text.Decoding) -> Reduction Text a -> Reduction ByteString (Maybe a)
+onTextDecodingStep step = \ case
+  Ongoing terminate consume ->
+    Ongoing
+      (Just terminate)
+      (\ bytes -> unsafeDupablePerformIO (catch
+        (do
+          Text.Some text _ nextStep <- evaluate (step bytes)
+          return (onTextDecodingStep nextStep (consume text))
+        )
+        (\ case
+          Text.DecodeError _ _ -> return (Terminated Nothing)
+          _ -> error "Unexpected EncodeError"
+        )))
+  Terminated output -> Terminated (Just output)
 
 {-|
 Focus a reduction on unique inputs.
