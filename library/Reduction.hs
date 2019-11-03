@@ -18,6 +18,7 @@ module Reduction
   strictList,
   reverseStrictList,
   vector,
+  hashMap,
   decodeUtf8,
   -- *** Attoparsec integration
   parseText,
@@ -380,6 +381,13 @@ Reduction, collecting all visited elements into a generic vector.
 {-# INLINABLE vector #-}
 vector :: Vector vec a => Reduction a (vec a)
 vector = liftA2 Vector.fromReverseStrictListN count reverseStrictList
+
+{-|
+Reduction, constructing a hashmap from pairs.
+-}
+{-# INLINABLE hashMap #-}
+hashMap :: (Eq a, Hashable a) => Reduction (a, b) (HashMap a b)
+hashMap = foldl (\ m (k, v) -> HashMap.insert k v m) HashMap.empty
 
 {-|
 Decode bytestring chunks using UTF-8,

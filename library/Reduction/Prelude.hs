@@ -118,3 +118,8 @@ import Data.Hashable as Exports (Hashable)
 -- strict-list
 -------------------------
 import StrictList as Exports (List(..))
+
+-- unordered-containers
+-------------------------
+import Data.HashSet as Exports (HashSet)
+import Data.HashMap.Strict as Exports (HashMap)
