@@ -76,14 +76,14 @@ import qualified Data.HashMap.Strict as HashMap
 -------------------------
 
 {-|
-State of reduction.
+State of reduction of multiple @input@ values into one @output@.
 A powerful replacement to folding functions,
 with the following features:
 
 - Feeding from multiple sources of data.
 - Early termination. Stops consuming input as soon as it stops needing it.
 - Being itself a state value allows it to be fed with data incrementally or serve as context in the `State` monad.
-- Composes well. Providing both parallel and sequential APIs.
+- Great composability. Provides both parallel and sequential APIs.
 -}
 data Reduction input output =
   {-|
