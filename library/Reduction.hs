@@ -12,6 +12,7 @@ module Reduction
   sum,
   product,
   head,
+  find,
   list,
   reverseList,
   strictList,
@@ -61,7 +62,7 @@ module Reduction
 )
 where
 
-import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop, concat, takeWhile, dropWhile, either, null, head)
+import Reduction.Prelude hiding (par, seq, foldl, sum, product, take, drop, concat, takeWhile, dropWhile, either, null, head, find)
 import qualified Reduction.Prelude as Prelude
 import qualified Data.Vector.Generic as Vec
 import qualified Control.Comonad as Comonad
@@ -207,6 +208,14 @@ Gets the head.
 {-# INLINABLE head #-}
 head :: Reduction a (Maybe a)
 head = Ongoing Nothing (Terminated . Just)
+
+{-|
+Finds the first matching occurrence.
+Same as @`reduceFiltered` predicate `head`@.
+-}
+{-# INLINABLE find #-}
+find :: (a -> Bool) -> Reduction a (Maybe a)
+find predicate = reduceFiltered predicate head
 
 {-|
 Reduction, collecting all visited elements into a list.
