@@ -434,6 +434,13 @@ Parse a stream of values, reducing it to a final result.
     in list & reduceTextParsingResults parser & feedList ["12,", "3", ",4,"] & extract
 :}
 Right [12,3,4]
+
+>>> :{
+  let
+    parser = Data.Attoparsec.Text.decimal <* Data.Attoparsec.Text.char ','
+    in list & reduceTextParsingResults parser & extract
+:}
+Right []
 -}
 {-# INLINABLE reduceTextParsingResults #-}
 reduceTextParsingResults :: AttoText.Parser a -> Reduction a b -> Reduction Text (Either String b)
