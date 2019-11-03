@@ -14,3 +14,13 @@ writeListInReverseOrderStartingFrom v = let
       loop (pred index) tail
     _ -> return ()
   in loop
+
+{-# INLINE writeStrictListInReverseOrderStartingFrom #-}
+writeStrictListInReverseOrderStartingFrom :: MVector v a => v s a -> Int -> List a -> ST s ()
+writeStrictListInReverseOrderStartingFrom v = let
+  loop !index = \ case
+    Cons value tail -> do
+      unsafeWrite v index value
+      loop (pred index) tail
+    _ -> return ()
+  in loop

@@ -14,6 +14,8 @@ module Reduction
   head,
   list,
   reverseList,
+  strictList,
+  reverseStrictList,
   vector,
   -- *** Attoparsec integration
   parseText,
@@ -42,6 +44,7 @@ module Reduction
   -- [1,2,3,4,5]
   feed,
   feedList,
+  feedStrictList,
   feedVector,
   feedByteString,
   feedText,
@@ -72,6 +75,7 @@ import qualified Data.Text.Unsafe as Text
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Unsafe as ByteString
 import qualified Data.HashMap.Strict as HashMap
+import qualified StrictList
 
 
 -- * Reduction
@@ -221,6 +225,22 @@ reverseList :: Reduction a [a]
 reverseList = foldl (flip (:)) []
 
 {-|
+Reduction, collecting all visited elements into a strict list.
+It's slower than `reverseStrictList`.
+-}
+{-# INLINABLE strictList #-}
+strictList :: Reduction a (List a)
+strictList = fmap StrictList.reverse reverseStrictList
+
+{-|
+Reduction, collecting all visited elements into a strict list in reverse order.
+It's faster than `strictList`.
+-}
+{-# INLINABLE reverseStrictList #-}
+reverseStrictList :: Reduction a (List a)
+reverseStrictList = foldl (flip Cons) Nil
+
+{-|
 Reduction, collecting all visited elements into a generic vector.
 
 >>> vector & feedList [1,2,3] & extract :: Data.Vector.Primitive.Vector Int
@@ -228,7 +248,7 @@ Reduction, collecting all visited elements into a generic vector.
 -}
 {-# INLINABLE vector #-}
 vector :: Vector vec a => Reduction a (vec a)
-vector = unpar $ Vector.fromReverseListN <$> par count <*> par reverseList
+vector = unpar $ Vector.fromReverseStrictListN <$> par count <*> par reverseStrictList
 
 -- *** Attoparsec
 -------------------------
@@ -514,6 +534,17 @@ feedList :: [a] -> Reduction a output -> Reduction a output
 feedList = \ case
   input : remainingList -> \ case
     Ongoing _ consume -> consume input & feedList remainingList
+    terminated -> terminated
+  _ -> id
+
+{-|
+Update reduction by feeding a strict list of inputs to it.
+-}
+{-# INLINABLE feedStrictList #-}
+feedStrictList :: List a -> Reduction a output -> Reduction a output
+feedStrictList = \ case
+  Cons input remainingList -> \ case
+    Ongoing _ consume -> consume input & feedStrictList remainingList
     terminated -> terminated
   _ -> id
 
