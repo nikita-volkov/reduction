@@ -18,7 +18,7 @@ main = defaultMain
           bench "Reduction" $ nf (reduceList R.sum) input
           ,
           bench "Reduction with early termination" $ let
-            reduction = R.onTaken 99999 R.sum
+            reduction = R.take 99999 R.sum
             in nf (reduceList reduction) input
           ,
           bench "Foldl" $ nf (Foldl.fold Foldl.sum) input
@@ -66,7 +66,7 @@ main = defaultMain
       in [
           bench "Reduction" $ let
             find :: (a -> Bool) -> [a] -> Maybe a
-            find predicate input = R.head & R.onFiltered predicate & R.feedList input & R.extract
+            find predicate input = R.head & R.filter predicate & R.feedList input & R.extract
             in nf (find (> 99999)) input
           ,
           bench "List" $ nf (find (> 99999)) input
