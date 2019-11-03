@@ -21,10 +21,10 @@ module Reduction
   parseText,
   parseByteString,
   -- ** Transformation
-  take,
-  drop,
-  takeWhile,
-  dropWhile,
+  reduceTaken,
+  reduceDropped,
+  reduceTakenWhile,
+  reduceDroppedWhile,
   reduceEither,
   reduceByteStringBytes,
   reduceTextChars,
@@ -307,36 +307,36 @@ mapOngoing fn = \ case
 Limit a reduction to consume only the specified amount of elements at max,
 terminating early.
 
->>> list & take 2 & feedList [1,2,3,4] & extract
+>>> list & reduceTaken 2 & feedList [1,2,3,4] & extract
 [1,2]
 -}
-{-# INLINABLE take #-}
-take :: Int -> Reduction a b -> Reduction a b
-take amount = if amount > 0
-  then mapOngoing (take (pred amount))
+{-# INLINABLE reduceTaken #-}
+reduceTaken :: Int -> Reduction a b -> Reduction a b
+reduceTaken amount = if amount > 0
+  then mapOngoing (reduceTaken (pred amount))
   else forceTermination
 
 {-|
 Make reduction ignore the first elements.
 
->>> list & drop 2 & feedList [1,2,3,4] & extract
+>>> list & reduceDropped 2 & feedList [1,2,3,4] & extract
 [3,4]
 -}
-{-# INLINABLE drop #-}
-drop :: Int -> Reduction a b -> Reduction a b
-drop amount = if amount > 0
+{-# INLINABLE reduceDropped #-}
+reduceDropped :: Int -> Reduction a b -> Reduction a b
+reduceDropped amount = if amount > 0
   then \ reduction -> case reduction of
-    Ongoing terminate consume -> Ongoing terminate (const (drop (amount - 1) reduction))
+    Ongoing terminate consume -> Ongoing terminate (const (reduceDropped (amount - 1) reduction))
     _ -> reduction
   else id
 
 {-|
->>> list & takeWhile (< 3) & feedList [1,2,3,4] & extract
+>>> list & reduceTakenWhile (< 3) & feedList [1,2,3,4] & extract
 [1,2]
 -}
-{-# INLINABLE takeWhile #-}
-takeWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
-takeWhile predicate = let
+{-# INLINABLE reduceTakenWhile #-}
+reduceTakenWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
+reduceTakenWhile predicate = let
   loop = \ case
     Ongoing terminate consume ->
       Ongoing terminate $ \ input -> if predicate input
@@ -346,12 +346,12 @@ takeWhile predicate = let
   in loop
 
 {-|
->>> list & dropWhile (< 3) & feedList [1,2,3,4] & extract
+>>> list & reduceDroppedWhile (< 3) & feedList [1,2,3,4] & extract
 [3,4]
 -}
-{-# INLINABLE dropWhile #-}
-dropWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
-dropWhile predicate = let
+{-# INLINABLE reduceDroppedWhile #-}
+reduceDroppedWhile :: (a -> Bool) -> Reduction a b -> Reduction a b
+reduceDroppedWhile predicate = let
   loop = \ case
     Ongoing terminate consume ->
       Ongoing terminate $ \ input -> if predicate input
@@ -705,8 +705,8 @@ which provides instances, implementing parallel composition.
 >>> :{
   extract $ feedList [1,2,3,4] $ unpar $
     (,) <$>
-      par (take 2 list) <*>
-      par (take 3 list)
+      par (reduceTaken 2 list) <*>
+      par (reduceTaken 3 list)
 :}
 ([1,2],[1,2,3])
 -}
@@ -754,12 +754,12 @@ par = ParReduction
 Zero-cost wrapper over `Reduction`,
 which provides instances, implementing sequential composition.
 
->>> ((,) <$> seq (take 2 list) <*> seq list) & unseq & feedList [1,2,3,4] & extract
+>>> ((,) <$> seq (reduceTaken 2 list) <*> seq list) & unseq & feedList [1,2,3,4] & extract
 ([1,2],[3,4])
 
 >>> :{
   extract $ feedList [1,2,3,4] $ unseq $ do
-    a <- seq $ take 2 $ sum
+    a <- seq $ reduceTaken 2 $ sum
     b <- seq $ product
     return (a, b)
 :}
