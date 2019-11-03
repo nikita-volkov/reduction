@@ -28,7 +28,7 @@ module Reduction
   onDropped,
   onTakenWhile,
   onDroppedWhile,
-  onPartitioned,
+  onPartitions,
   onEither,
   onByteStringBytes,
   onTextChars,
@@ -516,12 +516,12 @@ onDroppedWhile predicate = let
 {-|
 Generalization of `Data.List.partition`.
 
->>> onPartitioned odd list list & feedList [1,2,3,4] & extract
+>>> onPartitions odd list list & feedList [1,2,3,4] & extract
 ([1,3],[2,4])
 -}
-{-# INLINABLE onPartitioned #-}
-onPartitioned :: (a -> Bool) -> Reduction a b -> Reduction a c -> Reduction a (b, c)
-onPartitioned predicate reduction1 reduction2 =
+{-# INLINABLE onPartitions #-}
+onPartitions :: (a -> Bool) -> Reduction a b -> Reduction a c -> Reduction a (b, c)
+onPartitions predicate reduction1 reduction2 =
   lmap (\ i -> if predicate i then Left i else Right i) $
   onEither reduction1 reduction2
 
