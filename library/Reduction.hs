@@ -26,6 +26,7 @@ module Reduction
   reduceByteStringBytes,
   reduceTextChars,
   reduceUnique,
+  reduceFiltered,
   -- *** Attoparsec integration
   reduceTextParsingResults,
   reduceByteStringParsingResults,
@@ -403,6 +404,23 @@ reduceUnique = let
           else loop newMap (consume i)
     Terminated output -> Terminated output
   in loop HashMap.empty
+
+{-|
+Focus a reduction on filtered inputs.
+
+>>> list & reduceFiltered odd & feedList [1,2,3,4,5] & extract
+[1,3,5]
+-}
+{-# INLINABLE reduceFiltered #-}
+reduceFiltered :: (a -> Bool) -> Reduction a b -> Reduction a b
+reduceFiltered predicate = let
+  loop = \ case
+    Ongoing terminate consume ->
+      Ongoing terminate $ \ i -> if predicate i
+        then loop (consume i)
+        else loop (Ongoing terminate consume)
+    Terminated output -> Terminated output
+  in loop
 
 -- *** Attoparsec integration
 -------------------------
