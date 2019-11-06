@@ -35,6 +35,7 @@ module Reduction
   decodeUtf8,
   deduplicate,
   filter,
+  stepWithState,
   -- *** Attoparsec integration
   parseText,
   parseByteString,
@@ -663,6 +664,29 @@ filter predicate = let
         else loop (Ongoing terminate consume)
     Terminated output -> Terminated output
   in loop
+
+{-|
+Iterate, updating state and producing results.
+
+>>> :{
+  let
+    step inp = do
+      currentState <- get
+      put (currentState * inp)
+      return (currentState, inp)
+    in list & stepWithState step 1 & feedList [1,2,3,4,5] & extract
+:}
+[(1,1),(1,2),(2,3),(6,4),(24,5)]
+-}
+{-# INLINABLE stepWithState #-}
+stepWithState :: (a -> State s b) -> s -> Reduction b c -> Reduction a c
+stepWithState stateFn initialState reduction =
+  Ongoing
+    (extract reduction)
+    (\ a ->
+      case runState (stateFn a) initialState of
+        (b, nextState) -> reduction & feed b & stepWithState stateFn nextState
+    )
 
 -- *** Attoparsec integration
 -------------------------
